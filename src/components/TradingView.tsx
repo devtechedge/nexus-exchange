@@ -23,7 +23,12 @@ import {
   Sparkles,
   Layers,
   Check,
-  Percent
+  Percent,
+  Plus,
+  Minus,
+  Smile,
+  Lock,
+  Sparkle
 } from 'lucide-react';
 import { Asset, Transaction, ActiveOrder, GridBot, ArbitragePath } from '../types';
 
@@ -51,31 +56,24 @@ interface TradingViewProps {
   onTriggerPanic: () => void;
 }
 
-// Generate order book bids/asks
+// Generate friendly live order book asks & bids (Live Buy & Sell Queue)
 function generateOrderBook(basePrice: number, seed: number = 0) {
   const bids: { price: number; size: number; total: number }[] = [];
   const asks: { price: number; size: number; total: number }[] = [];
 
-  // Generate 8 asks (sell orders) starting slightly above basePrice
-  let askSum = 0;
-  for (let i = 1; i <= 8; i++) {
-    const p = basePrice * (1 + (i * 0.0008) + (Math.sin(seed + i) * 0.0003));
-    const s = 1.2 * i * (1.1 + Math.cos(seed - i) * 0.5) + 0.1;
-    askSum += s;
-    asks.push({ price: p, size: s, total: askSum });
+  for (let i = 1; i <= 6; i++) {
+    const p = basePrice * (1 + (i * 0.0007) + (Math.sin(seed + i) * 0.0002));
+    const s = 1.0 * i * (1.1 + Math.cos(seed - i) * 0.4) + 0.1;
+    asks.push({ price: p, size: s, total: s * p });
   }
 
-  // Generate 8 bids (buy orders) starting slightly below basePrice
-  let bidSum = 0;
-  for (let i = 1; i <= 8; i++) {
-    const p = basePrice * (1 - (i * 0.0008) - (Math.cos(seed + i) * 0.0003));
-    const s = 1.5 * i * (1.1 + Math.sin(seed + i) * 0.6) + 0.2;
-    bidSum += s;
-    bids.push({ price: p, size: s, total: bidSum });
+  for (let i = 1; i <= 6; i++) {
+    const p = basePrice * (1 - (i * 0.0007) - (Math.cos(seed + i) * 0.0002));
+    const s = 1.2 * i * (1.1 + Math.sin(seed + i) * 0.5) + 0.2;
+    bids.push({ price: p, size: s, total: s * p });
   }
 
-  // Sort asks in ascending (lowest asks first) and bids descending (highest bids first)
-  asks.sort((a, b) => b.price - a.price); // Higher prices on top
+  asks.sort((a, b) => b.price - a.price);
   bids.sort((a, b) => b.price - a.price);
 
   return { bids, asks };
@@ -97,52 +95,52 @@ export default function TradingView({
   onToggleCircuitBreaker,
   onTriggerPanic
 }: TradingViewProps) {
-  // Top level Order tab: 'spot' | 'algo' | 'grid'
-  const [activeTerminalTab, setActiveTerminalTab] = useState<'spot' | 'algo' | 'grid'>('spot');
+  // Main simplified beginner tabs: 'buy' | 'limit' | 'swap'
+  const [activeMainTab, setActiveMainTab] = useState<'buy' | 'limit' | 'swap'>('buy');
 
-  // Order Form State
+  // Curious explorers panel state (holds complex TWAP/Grid Bots)
+  const [showAdvancedBots, setShowAdvancedBots] = useState(false);
+  const [algoStrategy, setAlgoStrategy] = useState<'twap' | 'vwap' | 'trailing-stop' | 'bracket'>('twap');
+
+  // Input states
   const [tradeAsset, setTradeAsset] = useState('SOL');
   const [tradeSide, setTradeSide] = useState<'buy' | 'sell'>('buy');
-  const [tradeType, setTradeType] = useState<'market' | 'limit'>('market');
-  const [amountInput, setAmountInput] = useState('');
-  const [limitPriceInput, setLimitPriceInput] = useState('');
-  const [tradeError, setTradeError] = useState('');
-
-  // Algorithmic strategy type: 'twap' | 'vwap' | 'trailing-stop' | 'bracket'
-  const [algoStrategy, setAlgoStrategy] = useState<'twap' | 'vwap' | 'trailing-stop' | 'bracket'>('twap');
   
-  // Strategy specific configurations
+  // Custom smart inputs for beginners
+  const [usdSpendAmount, setUsdSpendAmount] = useState('50'); // Default $50 Regular Money
+  const [coinSellAmount, setCoinSellAmount] = useState('1'); // Default 1 Coin
+  const [customTargetPrice, setCustomTargetPrice] = useState('145.00');
+
+  // Form errors
+  const [tradeError, setTradeError] = useState('');
+  const [swapError, setSwapError] = useState('');
+
+  // TWAP/Grid inputs
   const [twapSlices, setTwapSlices] = useState('5');
-  const [twapInterval, setTwapInterval] = useState('15'); // 15s interval for high-fidelity demo
+  const [twapInterval, setTwapInterval] = useState('15');
   const [icebergEnabled, setIcebergEnabled] = useState(false);
   const [icebergPercent, setIcebergPercent] = useState('20');
-  
-  const [vwapTargetDepth, setVwapTargetDepth] = useState('120'); // SOL volume benchmark
-  
+  const [vwapTargetDepth, setVwapTargetDepth] = useState('120');
   const [trailingStopPct, setTrailingStopPct] = useState('2.5');
-  const [atrMultiplier, setAtrMultiplier] = useState('2.0'); // Volatility Buffer ATR mult
-
+  const [atrMultiplier, setAtrMultiplier] = useState('2.0');
   const [bracketTP, setBracketTP] = useState('');
   const [bracketSL, setBracketSL] = useState('');
-
-  // Grid Bot inputs
   const [gridLower, setGridLower] = useState('');
   const [gridUpper, setGridUpper] = useState('');
-  const [gridCount, setGridCount] = useState('8');
-  const [gridInvestment, setGridInvestment] = useState('1000');
+  const [gridCount, setGridCount] = useState('6');
+  const [gridInvestment, setGridInvestment] = useState('500');
 
   // Swap Form State
   const [swapFrom, setSwapFrom] = useState('USDC');
   const [swapTo, setSwapTo] = useState('SOL');
-  const [swapFromAmount, setSwapFromAmount] = useState('');
+  const [swapFromAmount, setSwapFromAmount] = useState('50');
   const [swapRate, setSwapRate] = useState(1);
   const [timeLeft, setTimeLeft] = useState(5);
-  const [swapError, setSwapError] = useState('');
 
   // Active book seed simulation
   const [bookSeed, setBookSeed] = useState(0);
 
-  // Slippage mitigation settings
+  // Slippage settings (Price Change Buffer)
   const [slippagePercent, setSlippagePercent] = useState(0.5);
   const [autoSlippage, setAutoSlippage] = useState(true);
 
@@ -151,22 +149,22 @@ export default function TradingView({
     return assets.find(a => a.symbol === tradeAsset) || assets[0];
   }, [assets, tradeAsset]);
 
-  // Set default limit/bracket values when asset or type changes
+  // Set default values when target asset changes
   useEffect(() => {
     if (selectedAsset) {
-      setLimitPriceInput(selectedAsset.price.toFixed(2));
-      setGridLower((selectedAsset.price * 0.90).toFixed(2));
-      setGridUpper((selectedAsset.price * 1.10).toFixed(2));
-      setBracketTP((selectedAsset.price * 1.05).toFixed(2));
-      setBracketSL((selectedAsset.price * 0.95).toFixed(2));
+      setCustomTargetPrice(selectedAsset.price.toFixed(2));
+      setGridLower((selectedAsset.price * 0.92).toFixed(2));
+      setGridUpper((selectedAsset.price * 1.08).toFixed(2));
+      setBracketTP((selectedAsset.price * 1.06).toFixed(2));
+      setBracketSL((selectedAsset.price * 0.94).toFixed(2));
     }
   }, [selectedAsset, tradeAsset]);
 
-  // Live simulation of Order Book depth updates
+  // Live simulation of Order Book updates
   useEffect(() => {
     const interval = setInterval(() => {
       setBookSeed(prev => prev + 1);
-    }, 1500);
+    }, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -174,43 +172,39 @@ export default function TradingView({
     return generateOrderBook(selectedAsset.price, bookSeed);
   }, [selectedAsset, bookSeed]);
 
-  // Dynamic book liquidity calculations for Slippage Auto-mitigation
-  const liquidityDepthIndex = useMemo(() => {
-    // Simulated liquidity depth based on book seed and selected price
-    const base = 85.4;
-    const flux = Math.sin(bookSeed * 0.5) * 6.5;
-    return parseFloat((base + flux).toFixed(1));
-  }, [bookSeed]);
-
-  const dynamicImpactSlippage = useMemo(() => {
-    const baseSlippage = 0.06;
-    const multiplier = 100 / liquidityDepthIndex;
-    const quantityFactor = (parseFloat(amountInput) || 0) * 0.002;
-    return parseFloat((baseSlippage * multiplier + quantityFactor).toFixed(4));
-  }, [liquidityDepthIndex, amountInput]);
-
-  useEffect(() => {
-    if (autoSlippage) {
-      // Auto-set slippage threshold based on liquidity depth
-      const optimal = Math.max(0.1, dynamicImpactSlippage * 1.5);
-      setSlippagePercent(parseFloat(optimal.toFixed(2)));
-    }
-  }, [dynamicImpactSlippage, autoSlippage]);
-
-  // Max bid/ask size for relative depth bars
   const maxDepthSize = useMemo(() => {
     const allSizes = [...orderBook.bids, ...orderBook.asks].map(item => item.total);
     return Math.max(...allSizes, 1);
   }, [orderBook]);
 
-  // Calculations for Order Form
-  const executionPrice = tradeType === 'market' ? selectedAsset.price : parseFloat(limitPriceInput) || selectedAsset.price;
-  const quantity = parseFloat(amountInput) || 0;
-  const subtotal = quantity * executionPrice;
-  const protocolFee = subtotal * 0.005; // 0.5%
-  const grandTotal = subtotal + protocolFee;
+  // Pricing calculations
+  const currentPrice = selectedAsset.price;
+  const targetPriceNumber = activeMainTab === 'limit' ? parseFloat(customTargetPrice) || currentPrice : currentPrice;
 
-  // Swap rate calculation
+  // Let's calculate equivalent amount based on input type
+  const estimatedAmountOfCoins = useMemo(() => {
+    if (tradeSide === 'buy') {
+      const spend = parseFloat(usdSpendAmount) || 0;
+      return spend / targetPriceNumber;
+    } else {
+      return parseFloat(coinSellAmount) || 0;
+    }
+  }, [tradeSide, usdSpendAmount, coinSellAmount, targetPriceNumber]);
+
+  const subtotal = useMemo(() => {
+    if (tradeSide === 'buy') {
+      return parseFloat(usdSpendAmount) || 0;
+    } else {
+      const coins = parseFloat(coinSellAmount) || 0;
+      return coins * targetPriceNumber;
+    }
+  }, [tradeSide, usdSpendAmount, coinSellAmount, targetPriceNumber]);
+
+  // Delivery Fee is protocol fee
+  const protocolFee = subtotal * 0.005; // 0.5%
+  const grandTotal = tradeSide === 'buy' ? subtotal + protocolFee : subtotal - protocolFee;
+
+  // Swap rates
   const fromAsset = useMemo(() => assets.find(a => a.symbol === swapFrom), [assets, swapFrom]);
   const toAsset = useMemo(() => assets.find(a => a.symbol === swapTo), [assets, swapTo]);
 
@@ -220,13 +214,11 @@ export default function TradingView({
     }
   }, [fromAsset, toAsset]);
 
-  // Swap Live rate lock timer
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          // Reset rate and countdown
-          setBookSeed(s => s + 1); // trigger rate fluctuation slightly
+          setBookSeed(s => s + 1);
           return 5;
         }
         return prev - 1;
@@ -240,114 +232,144 @@ export default function TradingView({
     return amt * swapRate;
   }, [swapFromAmount, swapRate]);
 
-  // Arbitrage Paths state
+  // Arbitrage capturing
   const [arbitrageCaptured, setArbitrageCaptured] = useState<string | null>(null);
   const [arbTick, setArbTick] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setArbTick(t => t + 1);
-    }, 4000);
+    }, 4500);
     return () => clearInterval(interval);
   }, []);
 
   const arbitragePaths: ArbitragePath[] = useMemo(() => {
     const solPrice = assets.find(a => a.symbol === 'SOL')?.price || 145;
-    const ethPrice = assets.find(a => a.symbol === 'ETH')?.price || 3240;
-    const deviation1 = 0.12 + Math.sin(arbTick * 0.8) * 0.08;
-    const deviation2 = 0.05 + Math.cos(arbTick * 0.5) * 0.06;
+    const deviation1 = 0.15 + Math.sin(arbTick * 0.8) * 0.08;
+    const deviation2 = 0.07 + Math.cos(arbTick * 0.5) * 0.04;
 
     return [
       {
         id: 'arb-path-1',
         route: ['USDC', 'SOL', 'ETH', 'USDC'],
         anomalousReturnPercent: parseFloat(Math.max(0.02, deviation1).toFixed(2)),
-        liquidityDepthUsd: 145000 + (arbTick % 5) * 12000,
+        liquidityDepthUsd: 152000 + (arbTick % 4) * 8000,
       },
       {
         id: 'arb-path-2',
         route: ['USDC', 'LINK', 'DOT', 'USDC'],
         anomalousReturnPercent: parseFloat(Math.max(0.01, deviation2).toFixed(2)),
-        liquidityDepthUsd: 82000 - (arbTick % 3) * 6000,
+        liquidityDepthUsd: 79000 - (arbTick % 3) * 4000,
       }
     ];
   }, [assets, arbTick]);
 
-  // Handlers
+  // Price adjuster buttons helper
+  const adjustTargetPrice = (percentChange: number) => {
+    const current = parseFloat(customTargetPrice) || selectedAsset.price;
+    const nextVal = current * (1 + percentChange);
+    setCustomTargetPrice(nextVal.toFixed(2));
+  };
+
   const handlePercentClick = (percent: number) => {
     if (tradeSide === 'buy') {
-      const availableUsd = balances['USDC'] || 0;
-      const targetSpend = availableUsd * (percent / 100);
-      const totalCostPerUnit = executionPrice + (executionPrice * 0.005);
-      const calculatedAmt = targetSpend / totalCostPerUnit;
-      setAmountInput(calculatedAmt.toFixed(4));
+      const avail = balances['USDC'] || 0;
+      const targetSpend = avail * (percent / 100);
+      setUsdSpendAmount(targetSpend.toFixed(2));
     } else {
-      const availableTokens = balances[tradeAsset] || 0;
-      const calculatedAmt = availableTokens * (percent / 100);
-      setAmountInput(calculatedAmt.toFixed(4));
+      const availCoins = balances[tradeAsset] || 0;
+      const targetCoins = availCoins * (percent / 100);
+      setCoinSellAmount(targetCoins.toFixed(4));
     }
   };
 
+  // Submit Trade
   const handleExecuteTradeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setTradeError('');
 
-    const amt = parseFloat(amountInput);
-    if (!amt || amt <= 0) {
-      setTradeError('Please enter a valid amount');
+    const coinAmt = estimatedAmountOfCoins;
+    if (coinAmt <= 0) {
+      setTradeError('Oops! Please write a valid amount to spend or sell.');
       return;
     }
 
     if (tradeSide === 'buy') {
-      const usdNeeded = grandTotal;
+      const usdNeeded = subtotal + protocolFee;
       const usdAvailable = balances['USDC'] || 0;
       if (usdNeeded > usdAvailable) {
-        setTradeError(`Insufficient USDC balance. Needs $${usdNeeded.toFixed(2)} but only has $${usdAvailable.toFixed(2)}`);
+        setTradeError(`Oops! You need $${usdNeeded.toFixed(2)} Regular Money to complete this, but you currently have $${usdAvailable.toFixed(2)} in your piggy bank.`);
         return;
       }
     } else {
       const tokensAvailable = balances[tradeAsset] || 0;
-      if (amt > tokensAvailable) {
-        setTradeError(`Insufficient ${tradeAsset} balance. Has ${tokensAvailable} ${tradeAsset}`);
+      const amountToSell = parseFloat(coinSellAmount) || 0;
+      if (amountToSell > tokensAvailable) {
+        setTradeError(`Oops! You don't own enough coins. You have ${tokensAvailable.toFixed(4)} ${tradeAsset} but you entered ${amountToSell.toFixed(4)}.`);
         return;
       }
     }
 
-    onExecuteTrade(tradeAsset, tradeSide, tradeType, amt, executionPrice);
-    setAmountInput('');
+    // Execute through core function
+    onExecuteTrade(
+      tradeAsset, 
+      tradeSide, 
+      activeMainTab === 'buy' ? 'market' : 'limit', 
+      coinAmt, 
+      targetPriceNumber
+    );
+
+    // Friendly celebration reset
+    setUsdSpendAmount('50');
+    setCoinSellAmount('1');
+    setTradeError('');
+  };
+
+  const handleExecuteSwapSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSwapError('');
+
+    const amt = parseFloat(swapFromAmount);
+    if (!amt || amt <= 0) {
+      setSwapError('Please write a valid amount to swap.');
+      return;
+    }
+
+    const available = balances[swapFrom] || 0;
+    if (amt > available) {
+      setSwapError(`Oops! You don't have enough ${swapFrom} to swap. You have ${available.toFixed(4)} ${swapFrom} but entered ${amt}.`);
+      return;
+    }
+
+    onExecuteSwap(swapFrom, swapTo, amt, swapToAmount);
+    setSwapFromAmount('50');
+  };
+
+  const handleTriggerArbitrage = (path: ArbitragePath) => {
+    setArbitrageCaptured(path.id);
+    const amountToPlay = 500; // Simplified beginner play
+    const profit = amountToPlay * (path.anomalousReturnPercent / 100);
+    
+    setTimeout(() => {
+      onExecuteSwap('USDC', 'USDC', amountToPlay, amountToPlay + profit);
+      setArbitrageCaptured(null);
+    }, 1200);
   };
 
   const handleExecuteAlgoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setTradeError('');
 
-    const amt = parseFloat(amountInput);
-    if (!amt || amt <= 0) {
-      setTradeError('Please enter a valid amount');
+    const coinAmt = estimatedAmountOfCoins;
+    if (coinAmt <= 0) {
+      setTradeError('Please write a valid amount to invest.');
       return;
     }
 
-    // Balance checks
-    if (tradeSide === 'buy') {
-      const usdNeeded = grandTotal;
-      const usdAvailable = balances['USDC'] || 0;
-      if (usdNeeded > usdAvailable) {
-        setTradeError(`Insufficient USDC balance. Needs $${usdNeeded.toFixed(2)} but only has $${usdAvailable.toFixed(2)}`);
-        return;
-      }
-    } else {
-      const tokensAvailable = balances[tradeAsset] || 0;
-      if (amt > tokensAvailable) {
-        setTradeError(`Insufficient ${tradeAsset} balance. Has ${tokensAvailable} ${tradeAsset}`);
-        return;
-      }
-    }
-
-    // Build the Algorithmic Order Payload
     const algoOrderPayload: Partial<ActiveOrder> = {
       symbol: tradeAsset,
       side: tradeSide,
-      amount: amt,
+      amount: coinAmt,
       price: selectedAsset.price,
       filled: 0,
       status: 'open',
@@ -355,11 +377,10 @@ export default function TradingView({
 
     if (algoStrategy === 'twap') {
       const slices = parseInt(twapSlices) || 5;
-      const intervalSec = parseInt(twapInterval) || 15;
       algoOrderPayload.type = 'twap';
       algoOrderPayload.twapTotalChunks = slices;
       algoOrderPayload.twapFilledChunks = 0;
-      algoOrderPayload.twapIntervalSeconds = intervalSec;
+      algoOrderPayload.twapIntervalSeconds = parseInt(twapInterval) || 15;
       algoOrderPayload.twapLastTriggerTime = Date.now();
       if (icebergEnabled) {
         algoOrderPayload.type = 'iceberg';
@@ -375,13 +396,13 @@ export default function TradingView({
       algoOrderPayload.trailingActivationPrice = selectedAsset.price;
     } else if (algoStrategy === 'bracket') {
       algoOrderPayload.type = 'bracket';
-      algoOrderPayload.price = selectedAsset.price; // Limit order execution trigger
       algoOrderPayload.bracketTakeProfit = parseFloat(bracketTP) || (selectedAsset.price * 1.05);
       algoOrderPayload.bracketStopLoss = parseFloat(bracketSL) || (selectedAsset.price * 0.95);
     }
 
     onExecuteAlgoOrder(algoOrderPayload);
-    setAmountInput('');
+    setUsdSpendAmount('50');
+    setCoinSellAmount('1');
     setTradeError('');
   };
 
@@ -394,17 +415,14 @@ export default function TradingView({
     const count = parseInt(gridCount);
     const invest = parseFloat(gridInvestment);
 
-    if (!lower || lower <= 0 || !upper || upper <= 0 || lower >= upper) {
-      setTradeError('Invalid price range boundaries');
+    if (!lower || !upper || lower >= upper) {
+      setTradeError('Oops! The lower price must be smaller than the upper price.');
       return;
     }
-    if (!count || count < 2 || count > 15) {
-      setTradeError('Grid density must be between 2 and 15 lines');
-      return;
-    }
+
     const usdcAvail = balances['USDC'] || 0;
     if (invest > usdcAvail) {
-      setTradeError(`Insufficient USDC to fund grid bot. Available: $${usdcAvail.toFixed(2)}`);
+      setTradeError(`Oops! You don't have enough Regular Money ($${invest.toFixed(2)}) to power this bot. Available: $${usdcAvail.toFixed(2)}.`);
       return;
     }
 
@@ -415,612 +433,705 @@ export default function TradingView({
       gridCount: count,
       investmentAmount: invest,
       active: true,
-      gridLevels: [], // App.tsx will initialize actual levels evenly
+      gridLevels: [],
     });
-
     setTradeError('');
   };
 
-  const handleExecuteSwapSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSwapError('');
+  const dynamicImpactSlippage = useMemo(() => {
+    const base = 0.05;
+    const qtyFactor = estimatedAmountOfCoins * 0.003;
+    return parseFloat((base + qtyFactor).toFixed(3));
+  }, [estimatedAmountOfCoins]);
 
-    const amt = parseFloat(swapFromAmount);
-    if (!amt || amt <= 0) {
-      setSwapError('Please enter a valid swap amount');
-      return;
+  const liquidityDepthIndex = useMemo(() => {
+    const base = 92.1;
+    const flux = Math.sin(bookSeed * 0.4) * 5.2;
+    return parseFloat((base + flux).toFixed(1));
+  }, [bookSeed]);
+
+  useEffect(() => {
+    if (autoSlippage) {
+      const optimal = Math.max(0.1, dynamicImpactSlippage * 1.4);
+      setSlippagePercent(parseFloat(optimal.toFixed(2)));
     }
-
-    const available = balances[swapFrom] || 0;
-    if (amt > available) {
-      setSwapError(`Insufficient ${swapFrom} balance. Has ${available.toLocaleString()} ${swapFrom}`);
-      return;
-    }
-
-    onExecuteSwap(swapFrom, swapTo, amt, swapToAmount);
-    setSwapFromAmount('');
-  };
-
-  const handleTriggerArbitrage = (path: ArbitragePath) => {
-    setArbitrageCaptured(path.id);
-    const totalInput = 10000; // Arbitrage standard amount
-    const gain = totalInput * (path.anomalousReturnPercent / 100);
-    
-    setTimeout(() => {
-      // Execute Swap in the background and credit user
-      onExecuteSwap('USDC', 'USDC', totalInput, totalInput + gain);
-      setArbitrageCaptured(null);
-    }, 1500);
-  };
+  }, [dynamicImpactSlippage, autoSlippage]);
 
   return (
     <div className="space-y-6">
+      
       {/* Top Asset Overview Ticker */}
       <div id="trade-ticker" className="p-4 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-4 relative overflow-hidden">
         {circuitBreakerArmed && (
-          <div className="absolute inset-y-0 left-0 w-1.5 bg-emerald-500" title="Volatility Shield Armed" />
+          <div className="absolute inset-y-0 left-0 w-1.5 bg-emerald-500" title="Defensive Shield Armed" />
         )}
         <div className="flex items-center gap-3">
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-sans font-bold text-white tracking-wide">{selectedAsset.symbol} / USDC</span>
-              <span className={`text-[10px] font-mono font-medium px-1.5 py-0.5 rounded ${
+              <span className="text-sm font-sans font-bold text-white tracking-wide">{selectedAsset.symbol} Coin Price</span>
+              <span className={`text-[10px] font-sans font-bold px-1.5 py-0.5 rounded ${
                 selectedAsset.change24h >= 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-red-950 text-red-400'
               }`}>
-                {selectedAsset.change24h >= 0 ? '+' : ''}{selectedAsset.change24h.toFixed(2)}%
+                {selectedAsset.change24h >= 0 ? 'Up ' : 'Down '}{Math.abs(selectedAsset.change24h).toFixed(2)}% today {selectedAsset.change24h >= 0 ? '🔥' : '🧊'}
               </span>
             </div>
-            <span className="text-[10px] font-mono text-slate-500">Nexus Asset spot feed • ATR: {(selectedAsset.price * 0.015).toFixed(4)} SOL</span>
+            <span className="text-[10px] font-sans text-slate-400 leading-none">
+              {selectedAsset.symbol} is currently valued at ${selectedAsset.price.toLocaleString()} in real-world Regular Money.
+            </span>
           </div>
         </div>
 
         <div className="flex items-center gap-6">
           <div className="flex flex-col">
-            <span className="text-[10px] font-mono text-slate-500 uppercase">Spot Value</span>
-            <span className="text-sm font-mono font-bold text-white">
+            <span className="text-[10px] font-sans text-slate-500 uppercase">Current Value</span>
+            <span className="text-sm font-mono font-bold text-cyan-400">
               ${selectedAsset.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-mono text-slate-500 uppercase">24h Spread High</span>
-            <span className="text-sm font-mono font-semibold text-slate-300">
-              ${(selectedAsset.price * 1.034).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="flex flex-col hidden sm:flex">
+            <span className="text-[10px] font-sans text-slate-500 uppercase">Highest Price Today</span>
+            <span className="text-xs font-mono text-slate-300">
+              ${(selectedAsset.price * 1.025).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-mono text-slate-500 uppercase">24h Spread Low</span>
-            <span className="text-sm font-mono font-semibold text-slate-300">
-              ${(selectedAsset.price * 0.971).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="flex flex-col hidden sm:flex">
+            <span className="text-[10px] font-sans text-slate-500 uppercase">Lowest Price Today</span>
+            <span className="text-xs font-mono text-slate-300">
+              ${(selectedAsset.price * 0.975).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
           <div className="flex flex-col items-end">
-            <span className="text-[10px] font-mono text-slate-500 uppercase">Volatility Guard</span>
-            <span className={`text-xs font-mono font-bold ${circuitBreakerArmed ? 'text-emerald-400' : 'text-slate-500'}`}>
-              {circuitBreakerArmed ? 'ARMED (SHIELD ON)' : 'DISARMED'}
+            <span className="text-[10px] font-sans text-slate-500 uppercase flex items-center gap-1">
+              Flash-Crash Guard <span title="Automatically stops trades if the price falls too fast to save your funds!" className="cursor-help"><HelpCircle className="w-3 h-3 text-slate-500" /></span>
+            </span>
+            <span className={`text-xs font-sans font-bold flex items-center gap-1 ${circuitBreakerArmed ? 'text-emerald-400' : 'text-slate-500'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${circuitBreakerArmed ? 'bg-emerald-400 animate-pulse' : 'bg-slate-700'}`} />
+              {circuitBreakerArmed ? 'Active Shield On ✅' : 'Standby Mode'}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Trading Terminal Grid */}
+      {/* THREE LARGE OBVIOUS TABS FOR BEGINNERS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-950 border border-slate-900 p-1.5 rounded-3xl">
+        <button
+          onClick={() => { setActiveMainTab('buy'); setTradeError(''); }}
+          className={`py-3.5 px-4 rounded-2xl font-sans font-bold text-xs tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            activeMainTab === 'buy' 
+              ? 'bg-slate-900 text-cyan-400 border border-slate-800 shadow-lg shadow-cyan-950/20 scale-[1.01]' 
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/30'
+          }`}
+        >
+          <Zap className="w-4 h-4 text-cyan-400 shrink-0" />
+          <span>⚡ Instant Buy / Sell</span>
+        </button>
+        <button
+          onClick={() => { setActiveMainTab('limit'); setTradeError(''); }}
+          className={`py-3.5 px-4 rounded-2xl font-sans font-bold text-xs tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            activeMainTab === 'limit' 
+              ? 'bg-slate-900 text-teal-400 border border-slate-800 shadow-lg shadow-teal-950/20 scale-[1.01]' 
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/30'
+          }`}
+        >
+          <Sliders className="w-4 h-4 text-teal-400 shrink-0" />
+          <span>🎯 Set Your Own Price</span>
+        </button>
+        <button
+          onClick={() => { setActiveMainTab('swap'); setSwapError(''); }}
+          className={`py-3.5 px-4 rounded-2xl font-sans font-bold text-xs tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            activeMainTab === 'swap' 
+              ? 'bg-slate-900 text-purple-400 border border-slate-800 shadow-lg shadow-purple-950/20 scale-[1.01]' 
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/30'
+          }`}
+        >
+          <ArrowLeftRight className="w-4 h-4 text-purple-400 shrink-0" />
+          <span>🔄 Quick Coin Swap</span>
+        </button>
+      </div>
+
+      {/* Main Terminal Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left Side: Order Form with Tabs (4 cols) */}
-        <div id="order-form-card" className="lg:col-span-4 p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md flex flex-col justify-between">
-          <div>
-            {/* Multi-Terminal Tab Navigation */}
-            <div className="grid grid-cols-3 bg-slate-950 border border-slate-900/80 p-1 rounded-xl mb-4">
-              <button
-                onClick={() => { setActiveTerminalTab('spot'); setTradeError(''); }}
-                className={`py-1 text-[10px] font-mono font-bold rounded-lg transition-all ${
-                  activeTerminalTab === 'spot' ? 'bg-slate-900 text-cyan-400 border border-slate-800' : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                SPOT
-              </button>
-              <button
-                onClick={() => { setActiveTerminalTab('algo'); setTradeError(''); }}
-                className={`py-1 text-[10px] font-mono font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
-                  activeTerminalTab === 'algo' ? 'bg-slate-900 text-emerald-400 border border-slate-800' : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                <Cpu className="w-3 h-3" />
-                ALGO
-              </button>
-              <button
-                onClick={() => { setActiveTerminalTab('grid'); setTradeError(''); }}
-                className={`py-1 text-[10px] font-mono font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${
-                  activeTerminalTab === 'grid' ? 'bg-slate-900 text-purple-400 border border-slate-800' : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                <Layers className="w-3 h-3" />
-                GRID BOT
-              </button>
-            </div>
+        {/* Left Side: Dynamic Core Beginner forms (8 cols) */}
+        <div className="lg:col-span-8 space-y-6">
+          
+          <div className="p-6 bg-slate-950/40 border border-slate-900 rounded-3xl backdrop-blur-md">
+            
+            {/* SUB-TABS: Buy vs Sell Selector (Only for Spot / Limit) */}
+            {activeMainTab !== 'swap' && (
+              <div className="grid grid-cols-2 bg-slate-900/50 p-1.5 rounded-2xl border border-slate-900/80 mb-6">
+                <button
+                  type="button"
+                  onClick={() => { setTradeSide('buy'); setTradeError(''); }}
+                  className={`py-2 rounded-xl font-sans font-bold text-xs tracking-wide transition-all cursor-pointer ${
+                    tradeSide === 'buy' ? 'bg-slate-800 text-emerald-400 shadow-md' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  🟢 Buy Digital Coins
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setTradeSide('sell'); setTradeError(''); }}
+                  className={`py-2 rounded-xl font-sans font-bold text-xs tracking-wide transition-all cursor-pointer ${
+                    tradeSide === 'sell' ? 'bg-slate-800 text-red-400 shadow-md' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  🔴 Sell My Coins
+                </button>
+              </div>
+            )}
 
-            {/* SHARED BUY/SELL & ASSET SECTOR */}
-            {activeTerminalTab !== 'grid' && (
-              <div className="space-y-4 mb-4">
-                <div className="grid grid-cols-2 bg-slate-900/60 p-1 rounded-xl border border-slate-900">
-                  <button
-                    id="trade-side-buy"
-                    type="button"
-                    onClick={() => { setTradeSide('buy'); setTradeError(''); }}
-                    className={`py-1.5 text-xs font-mono font-bold rounded-lg transition-all ${
-                      tradeSide === 'buy' ? 'bg-emerald-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    BUY
-                  </button>
-                  <button
-                    id="trade-side-sell"
-                    type="button"
-                    onClick={() => { setTradeSide('sell'); setTradeError(''); }}
-                    className={`py-1.5 text-xs font-mono font-bold rounded-lg transition-all ${
-                      tradeSide === 'sell' ? 'bg-red-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    SELL
-                  </button>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs font-mono">
-                    <label className="text-slate-400 font-bold uppercase text-[9px]">Target Asset</label>
-                    <span className="text-slate-500">
-                      Avail: {tradeSide === 'buy' 
-                        ? `$${(balances['USDC'] || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`
-                        : `${(balances[tradeAsset] || 0).toLocaleString('en-US', { maximumFractionDigits: 4 })} ${tradeAsset}`
-                      }
-                    </span>
-                  </div>
+            {/* FORM 1: INSTANT BUY/SELL */}
+            {activeMainTab === 'buy' && (
+              <form onSubmit={handleExecuteTradeSubmit} className="space-y-6">
+                
+                {/* Coin selection */}
+                <div className="space-y-2">
+                  <label className="text-xs font-sans text-slate-400 uppercase tracking-wide flex items-center gap-1 font-bold">
+                    1. Choose Coin
+                  </label>
                   <div className="relative">
                     <select
                       id="trade-asset-select"
                       value={tradeAsset}
                       onChange={(e) => { setTradeAsset(e.target.value); setTradeError(''); }}
-                      className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none transition-colors appearance-none cursor-pointer font-sans font-semibold"
+                      className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none appearance-none cursor-pointer font-sans font-bold"
                     >
                       {assets.filter(a => a.symbol !== 'USDC').map((asset) => (
-                        <option key={asset.symbol} value={asset.symbol}>{asset.symbol} ({asset.name})</option>
+                        <option key={asset.symbol} value={asset.symbol}>🪙 {asset.symbol} - {asset.name}</option>
                       ))}
                     </select>
-                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-4 pointer-events-none" />
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* TAB CONTENT: 1. SPOT */}
-            {activeTerminalTab === 'spot' && (
-              <form onSubmit={handleExecuteTradeSubmit} className="space-y-4">
-                {/* Order Type Tabs */}
-                <div className="grid grid-cols-2 bg-slate-900/40 p-0.5 rounded-lg border border-slate-900">
-                  <button
-                    id="trade-type-market"
-                    type="button"
-                    onClick={() => { setTradeType('market'); setTradeError(''); }}
-                    className={`py-1 text-[10px] font-mono font-medium rounded-md transition-all ${
-                      tradeType === 'market' ? 'bg-slate-800 text-cyan-400' : 'text-slate-500'
-                    }`}
-                  >
-                    MARKET
-                  </button>
-                  <button
-                    id="trade-type-limit"
-                    type="button"
-                    onClick={() => { setTradeType('limit'); setTradeError(''); }}
-                    className={`py-1 text-[10px] font-mono font-medium rounded-md transition-all ${
-                      tradeType === 'limit' ? 'bg-slate-800 text-cyan-400' : 'text-slate-500'
-                    }`}
-                  >
-                    LIMIT
-                  </button>
+                {/* Amount selection */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-sans">
+                    <label className="text-slate-400 uppercase tracking-wide font-bold">
+                      {tradeSide === 'buy' ? '2. How much do you want to buy? ($)' : '2. How many coins do you want to sell?'}
+                    </label>
+                    <span className="text-slate-400 font-semibold">
+                      Your Piggy Bank: {tradeSide === 'buy' 
+                        ? `$${(balances['USDC'] || 0).toLocaleString()} USDC (Regular Cash)`
+                        : `${(balances[tradeAsset] || 0).toFixed(4)} ${tradeAsset} Coins`
+                      }
+                    </span>
+                  </div>
+
+                  <div className="relative">
+                    {tradeSide === 'buy' ? (
+                      <>
+                        <input
+                          id="trade-usd-input"
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 50"
+                          value={usdSpendAmount}
+                          onChange={(e) => setUsdSpendAmount(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none font-mono"
+                        />
+                        <span className="absolute right-4 top-3 text-xs font-sans text-slate-500 font-bold bg-slate-900 px-2 py-1 rounded">USD</span>
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          id="trade-coin-input"
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 1.0"
+                          value={coinSellAmount}
+                          onChange={(e) => setCoinSellAmount(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none font-mono"
+                        />
+                        <span className="absolute right-4 top-3 text-xs font-sans text-slate-500 font-bold bg-slate-900 px-2 py-1 rounded">{tradeAsset}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
 
-                {tradeType === 'limit' && (
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-mono text-slate-400 uppercase">Limit Price (USDC)</label>
-                    <div className="relative">
+                {/* Quick percent helpers */}
+                <div className="grid grid-cols-4 gap-2">
+                  {[25, 50, 75, 100].map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => handlePercentClick(pct)}
+                      className="py-1.5 bg-slate-900 hover:bg-slate-850 text-[11px] font-sans font-bold text-slate-400 hover:text-cyan-400 border border-slate-850 rounded-xl transition"
+                    >
+                      Use {pct}%
+                    </button>
+                  ))}
+                </div>
+
+                {/* Friendly visual analogy live preview */}
+                <div className="p-4 bg-cyan-950/15 border border-cyan-900/30 rounded-2xl space-y-2 text-xs">
+                  <p className="font-bold text-cyan-300 flex items-center gap-1.5">
+                    <Smile className="w-4 h-4 text-cyan-400" /> Let's review what happens:
+                  </p>
+                  <p className="text-slate-300 leading-relaxed font-sans font-medium text-xs">
+                    {tradeSide === 'buy' ? (
+                      <span>
+                        You are spending <strong className="text-white">${parseFloat(usdSpendAmount) || 0}</strong> of your Regular Cash to instantly receive roughly <strong className="text-cyan-400">{estimatedAmountOfCoins.toFixed(5)} {tradeAsset}</strong>.
+                      </span>
+                    ) : (
+                      <span>
+                        You are giving up <strong className="text-white">{parseFloat(coinSellAmount) || 0} {tradeAsset}</strong> coins to instantly receive roughly <strong className="text-emerald-400">${subtotal.toFixed(2)}</strong> of Regular Cash in your Piggy Bank.
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex justify-between items-center text-[11px] text-slate-500 border-t border-slate-900/60 pt-2 font-sans mt-2">
+                    <span className="flex items-center gap-1">
+                      Blockchain Delivery Fee 📦 
+                      <span title="Paid to computers on the internet running the blockchain network so they process your order safely." className="cursor-help"><HelpCircle className="w-3.5 h-3.5 text-slate-600" /></span>
+                    </span>
+                    <span className="text-slate-300 font-semibold">${protocolFee.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {tradeError && <p className="text-xs font-sans text-red-400 font-bold bg-red-950/20 border border-red-900/40 p-3 rounded-xl">⚠️ {tradeError}</p>}
+
+                <button
+                  type="submit"
+                  className={`w-full py-4 rounded-2xl font-sans font-bold text-xs tracking-wider cursor-pointer text-slate-950 shadow-lg hover:scale-[1.01] transition-all duration-150 uppercase ${
+                    tradeSide === 'buy' ? 'bg-emerald-400 hover:bg-emerald-300' : 'bg-red-400 hover:bg-red-300 text-white'
+                  }`}
+                >
+                  Confirm Instant {tradeSide.toUpperCase()} ⚡
+                </button>
+              </form>
+            )}
+
+            {/* FORM 2: LIMIT ORDER ("Set Your Own Price") */}
+            {activeMainTab === 'limit' && (
+              <form onSubmit={handleExecuteTradeSubmit} className="space-y-6">
+                
+                {/* Explanatory banner */}
+                <div className="p-3.5 bg-teal-950/20 border border-teal-900/40 rounded-2xl flex items-start gap-2.5">
+                  <Info className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-slate-300 font-sans leading-relaxed">
+                    {tradeSide === 'buy' 
+                      ? "Think the price is going to drop? Put your target price here! We will automatically buy the coin for you only when it hits that exact number."
+                      : "Think the price is going to shoot up? Put your target price here! We will automatically sell the coin for you only when it hits that exact number."
+                    }
+                  </p>
+                </div>
+
+                {/* Coin selection */}
+                <div className="space-y-2">
+                  <label className="text-xs font-sans text-slate-400 uppercase tracking-wide flex items-center gap-1 font-bold">
+                    1. Choose Coin
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={tradeAsset}
+                      onChange={(e) => { setTradeAsset(e.target.value); setTradeError(''); }}
+                      className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none appearance-none cursor-pointer font-sans font-bold"
+                    >
+                      {assets.filter(a => a.symbol !== 'USDC').map((asset) => (
+                        <option key={asset.symbol} value={asset.symbol}>🪙 {asset.symbol} - {asset.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-4 top-4 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Target Price input with +/- buttons */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-sans">
+                    <label className="text-slate-400 uppercase tracking-wide font-bold">
+                      2. Set Your Target Price ($)
+                    </label>
+                    <span className="text-slate-400">Current Price: ${selectedAsset.price.toLocaleString()}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => adjustTargetPrice(-0.01)}
+                      className="p-3 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded-xl border border-slate-850 cursor-pointer"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="relative flex-1">
                       <input
                         id="trade-price-input"
                         type="number"
                         step="any"
-                        value={limitPriceInput}
-                        onChange={(e) => setLimitPriceInput(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none transition-colors font-mono"
+                        value={customTargetPrice}
+                        onChange={(e) => setCustomTargetPrice(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl px-4 py-3 text-sm text-center text-white focus:outline-none font-mono"
                       />
-                      <span className="absolute right-3.5 top-2.5 text-xs font-mono text-slate-500">USDC</span>
+                      <span className="absolute right-4 top-3 text-xs font-sans text-slate-500 font-bold">USD</span>
                     </div>
-                  </div>
-                )}
 
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase">Order Amount</label>
-                  <div className="relative">
-                    <input
-                      id="trade-amount-input"
-                      type="number"
-                      step="any"
-                      placeholder="0.00"
-                      value={amountInput}
-                      onChange={(e) => setAmountInput(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none transition-colors font-mono"
-                    />
-                    <span className="absolute right-3.5 top-2.5 text-xs font-mono text-slate-500">{tradeAsset}</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-4 gap-1.5">
-                  {['25', '50', '75', '100'].map((pct) => (
                     <button
-                      key={pct}
                       type="button"
-                      onClick={() => handlePercentClick(parseInt(pct))}
-                      className="py-1 bg-slate-900 hover:bg-slate-850 text-[10px] font-mono text-slate-400 hover:text-slate-200 border border-slate-850 rounded-lg transition-colors cursor-pointer"
+                      onClick={() => adjustTargetPrice(0.01)}
+                      className="p-3 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded-xl border border-slate-850 cursor-pointer"
                     >
-                      {pct}%
+                      <Plus className="w-4 h-4" />
                     </button>
-                  ))}
-                </div>
-
-                {/* Costs Summary */}
-                <div className="p-3 bg-slate-900/30 border border-slate-900/60 rounded-xl space-y-1.5 text-xs font-mono">
-                  <div className="flex justify-between text-slate-400">
-                    <span>Subtotal:</span>
-                    <span className="text-slate-200">${subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>Fee (0.5%):</span>
-                    <span className="text-slate-200">${protocolFee.toFixed(2)}</span>
-                  </div>
-                  <div className="border-t border-slate-900/80 my-1"></div>
-                  <div className="flex justify-between font-bold text-white">
-                    <span>Grand Total:</span>
-                    <span>${grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
 
-                {tradeError && <p className="text-xs font-mono text-red-400 mt-1">{tradeError}</p>}
+                {/* Amount input */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-sans">
+                    <label className="text-slate-400 uppercase tracking-wide font-bold">
+                      {tradeSide === 'buy' ? '3. Cash to Lock ($)' : '3. Amount of Coins to Lock'}
+                    </label>
+                    <span className="text-slate-400">
+                      Wallet size: {tradeSide === 'buy' 
+                        ? `$${(balances['USDC'] || 0).toLocaleString()} USDC`
+                        : `${(balances[tradeAsset] || 0).toFixed(4)} ${tradeAsset}`
+                      }
+                    </span>
+                  </div>
+
+                  <div className="relative">
+                    {tradeSide === 'buy' ? (
+                      <>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 50"
+                          value={usdSpendAmount}
+                          onChange={(e) => setUsdSpendAmount(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none font-mono"
+                        />
+                        <span className="absolute right-4 top-3 text-xs font-sans text-slate-500 font-bold bg-slate-900 px-2 py-1 rounded">USD</span>
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 1.0"
+                          value={coinSellAmount}
+                          onChange={(e) => setCoinSellAmount(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none font-mono"
+                        />
+                        <span className="absolute right-4 top-3 text-xs font-sans text-slate-500 font-bold bg-slate-900 px-2 py-1 rounded">{tradeAsset}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Live target calculation summary */}
+                <div className="p-4 bg-teal-950/15 border border-teal-900/30 rounded-2xl space-y-2 text-xs">
+                  <p className="font-bold text-teal-300 flex items-center gap-1.5">
+                    <Smile className="w-4 h-4 text-teal-400" /> How this order works:
+                  </p>
+                  <p className="text-slate-300 leading-relaxed font-sans">
+                    We will save and lock <strong className="text-white">{tradeSide === 'buy' ? `$${usdSpendAmount}` : `${coinSellAmount} ${tradeAsset}`}</strong> of your funds. The moment the market price of {tradeAsset} hits exactly <strong className="text-cyan-400">${customTargetPrice}</strong>, our computers will instantly trigger the {tradeSide} swap for you!
+                  </p>
+                </div>
+
+                {tradeError && <p className="text-xs font-sans text-red-400 font-bold bg-red-950/20 border border-red-900/40 p-3 rounded-xl">⚠️ {tradeError}</p>}
 
                 <button
                   type="submit"
-                  className={`w-full py-3 rounded-xl font-sans font-bold text-xs shadow-lg cursor-pointer text-slate-950 tracking-wider transition duration-150 ${
-                    tradeSide === 'buy' ? 'bg-emerald-400 hover:bg-emerald-300' : 'bg-red-400 hover:bg-red-300'
-                  }`}
+                  className="w-full py-4 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 rounded-2xl font-sans font-bold text-xs tracking-wider cursor-pointer hover:scale-[1.01] transition-all duration-150 uppercase shadow-lg"
                 >
-                  EXECUTE {tradeSide.toUpperCase()} ORDER
+                  Set My Price Target 🎯
                 </button>
               </form>
             )}
 
-            {/* TAB CONTENT: 2. ALGORITHMIC ENGINE */}
-            {activeTerminalTab === 'algo' && (
-              <form onSubmit={handleExecuteAlgoSubmit} className="space-y-4">
-                {/* Algo Strategies Tab Selector */}
-                <div className="grid grid-cols-4 gap-1 bg-slate-950 border border-slate-900/60 p-1 rounded-xl">
-                  {['twap', 'vwap', 'trailing-stop', 'bracket'].map((strat) => (
+            {/* FORM 3: QUICK COIN SWAP */}
+            {activeMainTab === 'swap' && (
+              <form onSubmit={handleExecuteSwapSubmit} className="space-y-4">
+                
+                <div className="flex items-center justify-between border-b border-slate-900 pb-3">
+                  <span className="text-xs font-sans font-bold text-slate-300">Quick Swap Converter 🔄</span>
+                  <div className="flex items-center gap-1.5 text-[10px] font-sans text-slate-400 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
+                    <Clock className="w-3.5 h-3.5 text-cyan-400 animate-spin" style={{ animationDuration: '4s' }} />
+                    Price locked: {timeLeft}s
+                  </div>
+                </div>
+
+                {/* FROM Coin */}
+                <div className="p-4 bg-slate-950/80 border border-slate-900 rounded-2xl">
+                  <div className="flex justify-between text-[11px] font-sans text-slate-400 mb-1 font-bold">
+                    <span>Trade This (You Give)</span>
+                    <span>Available: {(balances[swapFrom] || 0).toFixed(4)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="swap-amount-input"
+                      type="number"
+                      step="any"
+                      placeholder="0.00"
+                      value={swapFromAmount}
+                      onChange={(e) => setSwapFromAmount(e.target.value)}
+                      className="w-full bg-transparent text-sm font-sans font-bold text-white focus:outline-none placeholder-slate-700"
+                    />
+                    <select
+                      id="swap-from-select"
+                      value={swapFrom}
+                      onChange={(e) => { setSwapFrom(e.target.value); setSwapError(''); }}
+                      className="bg-slate-900 border border-slate-800 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 font-sans font-bold focus:outline-none cursor-pointer"
+                    >
+                      {assets.map((asset) => (
+                        <option key={asset.symbol} value={asset.symbol}>{asset.symbol}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Animated Arrow */}
+                <div className="flex justify-center -my-3 relative z-10">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const temp = swapFrom;
+                      setSwapFrom(swapTo);
+                      setSwapTo(temp);
+                      setSwapFromAmount('50');
+                    }}
+                    className="p-2 bg-slate-900 hover:bg-slate-850 text-cyan-400 border border-slate-850 hover:border-slate-700 rounded-full shadow-md cursor-pointer hover:scale-110 transition"
+                  >
+                    <ArrowLeftRight className="w-4 h-4 rotate-90" />
+                  </button>
+                </div>
+
+                {/* TO Coin */}
+                <div className="p-4 bg-slate-950/80 border border-slate-900 rounded-2xl">
+                  <div className="flex justify-between text-[11px] font-sans text-slate-400 mb-1 font-bold">
+                    <span>Get That (You Receive)</span>
+                    <span>Available: {(balances[swapTo] || 0).toFixed(4)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-sans font-bold text-cyan-300">
+                      {swapToAmount > 0 ? swapToAmount.toLocaleString('en-US', { maximumFractionDigits: 5 }) : '0.00'}
+                    </span>
+                    <select
+                      id="swap-to-select"
+                      value={swapTo}
+                      onChange={(e) => { setSwapTo(e.target.value); setSwapError(''); }}
+                      className="bg-slate-900 border border-slate-800 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 font-sans font-bold focus:outline-none cursor-pointer"
+                    >
+                      {assets.map((asset) => (
+                        <option key={asset.symbol} value={asset.symbol}>{asset.symbol}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Price locked warning */}
+                <p className="text-[10px] text-slate-500 font-sans leading-normal text-center bg-slate-900/20 p-2 rounded-xl">
+                  ⏱️ Price locked for 5 seconds so you don't get surprised by sudden network price changes!
+                </p>
+
+                {swapError && (
+                  <p className="text-xs font-sans text-red-400 font-bold bg-red-950/20 border border-red-900/40 p-3 rounded-xl">⚠️ {swapError}</p>
+                )}
+
+                <button
+                  id="swap-execute-btn"
+                  type="submit"
+                  className="w-full py-3.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400 text-slate-950 rounded-2xl font-sans font-bold text-xs tracking-wider cursor-pointer hover:scale-[1.01] transition-all duration-150 shadow-lg"
+                >
+                  Confirm Quick Swap 🔄
+                </button>
+              </form>
+            )}
+
+          </div>
+
+          {/* CURIOUS EXPLORERS PANEL: COLLAPSIBLE AREA FOR ADVANCED BOTS */}
+          <div className="p-4 bg-slate-900/20 border border-slate-900 rounded-3xl">
+            <button
+              onClick={() => setShowAdvancedBots(!showAdvancedBots)}
+              className="w-full flex items-center justify-between p-2 hover:bg-slate-900/30 rounded-2xl transition cursor-pointer text-left"
+            >
+              <div className="flex items-center gap-2">
+                <Cpu className="w-5 h-5 text-purple-400 animate-pulse" />
+                <div>
+                  <p className="text-xs font-sans font-bold text-slate-200">🤖 Advanced Smart Trading Bots</p>
+                  <p className="text-[10px] font-sans text-slate-500 mt-0.5">Automated TWAP algorithms, bracket targets, and high-frequency grid bots.</p>
+                </div>
+              </div>
+              <span className="text-xs font-sans font-semibold text-cyan-400 hover:text-cyan-300">
+                {showAdvancedBots ? 'Close Panel ▲' : 'Explore Bots ▼'}
+              </span>
+            </button>
+
+            <AnimatePresence>
+              {showAdvancedBots && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden mt-4 pt-4 border-t border-slate-900 space-y-4"
+                >
+                  {/* Select Bot */}
+                  <div className="flex bg-slate-950 border border-slate-900 p-1 rounded-xl">
                     <button
-                      key={strat}
                       type="button"
-                      onClick={() => setAlgoStrategy(strat as any)}
-                      className={`py-1 text-[9px] font-mono font-bold rounded-lg transition-all ${
-                        algoStrategy === strat ? 'bg-slate-900 text-emerald-400 border border-slate-800' : 'text-slate-500'
+                      onClick={() => setAlgoStrategy('twap')}
+                      className={`flex-1 py-1.5 text-[10px] font-sans font-bold rounded-lg transition-all ${
+                        algoStrategy === 'twap' ? 'bg-slate-900 text-emerald-400 shadow-md' : 'text-slate-500'
                       }`}
                     >
-                      {strat.replace('-', ' ').toUpperCase()}
+                      TWAP BOT
                     </button>
-                  ))}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => setAlgoStrategy('vwap')}
+                      className={`flex-1 py-1.5 text-[10px] font-sans font-bold rounded-lg transition-all ${
+                        algoStrategy === 'vwap' ? 'bg-slate-900 text-emerald-400 shadow-md' : 'text-slate-500'
+                      }`}
+                    >
+                      VWAP BOT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAlgoStrategy('trailing-stop')}
+                      className={`flex-1 py-1.5 text-[10px] font-sans font-bold rounded-lg transition-all ${
+                        algoStrategy === 'trailing-stop' ? 'bg-slate-900 text-emerald-400 shadow-md' : 'text-slate-500'
+                      }`}
+                    >
+                      TRAILING BOT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAlgoStrategy('bracket')}
+                      className={`flex-1 py-1.5 text-[10px] font-sans font-bold rounded-lg transition-all ${
+                        algoStrategy === 'bracket' ? 'bg-slate-900 text-emerald-400 shadow-md' : 'text-slate-500'
+                      }`}
+                    >
+                      BRACKET BOT
+                    </button>
+                  </div>
 
-                {/* Strategy Form Fields */}
-                {algoStrategy === 'twap' && (
-                  <div className="space-y-3.5 p-3.5 bg-slate-950/60 border border-slate-900 rounded-xl">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-emerald-400 font-sans flex items-center gap-1">
-                        <Cpu className="w-3.5 h-3.5" /> Time-Weighted Average (TWAP)
-                      </span>
-                      <Info className="w-3.5 h-3.5 text-slate-500 cursor-help" title="Slices order into intervals to minimize slippage." />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-mono text-slate-400 uppercase">Modular Slices</label>
-                        <input
-                          type="number"
-                          value={twapSlices}
-                          onChange={(e) => setTwapSlices(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2 py-1.5 text-xs text-white font-mono"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-mono text-slate-400 uppercase">Interval (Secs)</label>
-                        <input
-                          type="number"
-                          value={twapInterval}
-                          onChange={(e) => setTwapInterval(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2 py-1.5 text-xs text-white font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Iceberg Order Fragmenter Toggle */}
-                    <div className="border-t border-slate-900/60 pt-3 flex flex-col gap-2.5">
-                      <label className="flex items-center gap-2 text-xs font-mono text-slate-300 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={icebergEnabled}
-                          onChange={(e) => setIcebergEnabled(e.target.checked)}
-                          className="rounded border-slate-800 bg-slate-950 text-emerald-500 focus:ring-0"
-                        />
-                        <span className="flex items-center gap-1.5 font-bold">
-                          <Layers className="w-3 h-3 text-cyan-400" />
-                          ICEBERG FRAGMENTATION
-                        </span>
-                      </label>
-                      {icebergEnabled && (
-                        <div className="space-y-1 p-2 bg-slate-900/40 border border-slate-900 rounded-lg">
-                          <div className="flex justify-between text-[9px] font-mono text-slate-500">
-                            <span>PUBLIC DISCLOSED VOLUME %</span>
-                            <span className="text-cyan-400">{icebergPercent}%</span>
-                          </div>
+                  {/* Form section */}
+                  {algoStrategy === 'twap' && (
+                    <div className="p-4 bg-slate-950/60 border border-slate-900 rounded-2xl space-y-4">
+                      <p className="text-[11px] text-slate-400">
+                        The TWAP bot slices a large purchase into small, tiny sub-orders over time so that you get the best average price!
+                      </p>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="space-y-1">
+                          <span className="text-[10px] text-slate-500">How many parts (Slices)?</span>
                           <input
-                            type="range"
-                            min="5"
-                            max="80"
-                            step="5"
-                            value={icebergPercent}
-                            onChange={(e) => setIcebergPercent(e.target.value)}
-                            className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                            type="number"
+                            value={twapSlices}
+                            onChange={(e) => setTwapSlices(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-900 rounded-lg p-2 text-white font-mono"
                           />
-                          <p className="text-[8px] text-slate-500 font-mono leading-relaxed mt-1">
-                            Only {icebergPercent}% will sit in the public book depth. {100 - parseInt(icebergPercent)}% remains hidden.
-                          </p>
                         </div>
-                      )}
+                        <div className="space-y-1">
+                          <span className="text-[10px] text-slate-500">Wait Time (Seconds)</span>
+                          <input
+                            type="number"
+                            value={twapInterval}
+                            onChange={(e) => setTwapInterval(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-900 rounded-lg p-2 text-white font-mono"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleExecuteAlgoSubmit}
+                        className="w-full py-2 bg-emerald-500 text-slate-950 font-sans font-bold text-xs rounded-xl"
+                      >
+                        Launch TWAP Bot 🚀
+                      </button>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {algoStrategy === 'vwap' && (
-                  <div className="space-y-3 p-3.5 bg-slate-950/60 border border-slate-900 rounded-xl">
-                    <span className="text-xs font-bold text-emerald-400 font-sans flex items-center gap-1">
-                      <Activity className="w-3.5 h-3.5" /> Volume-Weighted Average (VWAP)
+                  {algoStrategy !== 'twap' && (
+                    <div className="p-4 bg-slate-950/60 border border-slate-900 rounded-2xl">
+                      <p className="text-[11px] text-slate-400">
+                        Ready to deploy custom automation? You can launch VWAP, Bracket, or Trailing strategies to maximize your returns automatically.
+                      </p>
+                      <button
+                        onClick={handleExecuteAlgoSubmit}
+                        className="w-full py-2 bg-purple-500 text-slate-950 font-sans font-bold text-xs rounded-xl mt-3"
+                      >
+                        Deploy Smart Strategy Bot 🤖
+                      </button>
+                    </div>
+                  )}
+
+                  {/* High Frequency Grid bot */}
+                  <div className="p-4 bg-slate-950/60 border border-slate-900 rounded-2xl space-y-4">
+                    <span className="text-xs font-bold text-purple-400 flex items-center gap-1 font-sans">
+                      <Layers className="w-4 h-4" /> Real-time Volatility Grid Bot
                     </span>
-                    <p className="text-[10px] text-slate-400 font-mono">
-                      Calculates real-time market depth and dynamically fills allocations only when local momentum supports low slippage benchmarks.
+                    <p className="text-[11px] text-slate-400">
+                      The Grid Bot automatically buys low and sells high inside a price range to harvest rewards repeatedly while you sleep.
                     </p>
-
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-mono text-slate-400 uppercase">Target Depth (Asset Vol)</label>
-                      <input
-                        type="number"
-                        value={vwapTargetDepth}
-                        onChange={(e) => setVwapTargetDepth(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
-                        placeholder="SOL volume"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {algoStrategy === 'trailing-stop' && (
-                  <div className="space-y-3.5 p-3.5 bg-slate-950/60 border border-slate-900 rounded-xl">
-                    <span className="text-xs font-bold text-emerald-400 font-sans flex items-center gap-1">
-                      <Sliders className="w-3.5 h-3.5" /> Trailing Stop & ATR Buffer
-                    </span>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-mono text-slate-400 uppercase">Stop Offset %</label>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-500">Lower Range ($)</span>
                         <input
                           type="number"
-                          step="0.1"
-                          value={trailingStopPct}
-                          onChange={(e) => setTrailingStopPct(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2 py-1.5 text-xs text-white font-mono"
+                          value={gridLower}
+                          onChange={(e) => setGridLower(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-900 rounded-lg p-2 text-white font-mono"
                         />
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-mono text-slate-400 uppercase">ATR Multiplier</label>
+                      <div>
+                        <span className="text-[10px] text-slate-500">Upper Range ($)</span>
                         <input
                           type="number"
-                          step="0.1"
-                          value={atrMultiplier}
-                          onChange={(e) => setAtrMultiplier(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2 py-1.5 text-xs text-white font-mono"
+                          value={gridUpper}
+                          onChange={(e) => setGridUpper(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-900 rounded-lg p-2 text-white font-mono"
                         />
                       </div>
                     </div>
-                    <div className="p-2 bg-slate-900/40 border border-slate-900 rounded-lg text-[9px] font-mono text-slate-500 leading-relaxed flex items-start gap-1.5">
-                      <Shield className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" />
-                      <span>Volatility Buffer is ACTIVE. Offset will widen during high ATR periods to prevent premature trigger.</span>
-                    </div>
+                    <button
+                      onClick={handleStartGridBotSubmit}
+                      className="w-full py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-slate-950 font-sans font-bold text-xs rounded-xl"
+                    >
+                      Launch High-Frequency Grid Bot ⚡
+                    </button>
                   </div>
-                )}
-
-                {algoStrategy === 'bracket' && (
-                  <div className="space-y-3 p-3.5 bg-slate-950/60 border border-slate-900 rounded-xl">
-                    <span className="text-xs font-bold text-emerald-400 font-sans flex items-center gap-1">
-                      <Layers className="w-3.5 h-3.5 animate-pulse" /> Bracket OCO Interface
-                    </span>
-                    <p className="text-[10px] text-slate-400 font-mono leading-relaxed">
-                      Concurrently places dual target levels. When either is reached, the state machine kills the orphan order immediately.
-                    </p>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-mono text-emerald-500 uppercase font-bold">Take Profit (USD)</label>
-                        <input
-                          type="number"
-                          step="any"
-                          value={bracketTP}
-                          onChange={(e) => setBracketTP(e.target.value)}
-                          className="w-full bg-slate-950 border border-emerald-900 rounded-lg px-2 py-1.5 text-xs text-white font-mono focus:border-emerald-500"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-mono text-red-500 uppercase font-bold">Stop Loss (USD)</label>
-                        <input
-                          type="number"
-                          step="any"
-                          value={bracketSL}
-                          onChange={(e) => setBracketSL(e.target.value)}
-                          className="w-full bg-slate-950 border border-red-900 rounded-lg px-2 py-1.5 text-xs text-white font-mono focus:border-red-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Amount Entry */}
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase">Strategy Investment Amount</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="any"
-                      placeholder="0.00"
-                      value={amountInput}
-                      onChange={(e) => setAmountInput(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none transition-colors font-mono"
-                    />
-                    <span className="absolute right-3.5 top-2.5 text-xs font-mono text-slate-500">{tradeAsset}</span>
-                  </div>
-                </div>
-
-                {tradeError && <p className="text-xs font-mono text-red-400 mt-1">{tradeError}</p>}
-
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-sans font-bold text-xs rounded-xl shadow-lg transition tracking-wide cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Cpu className="w-4 h-4 text-slate-950" />
-                  LAUNCH ALGORITHMIC COUPLING
-                </button>
-              </form>
-            )}
-
-            {/* TAB CONTENT: 3. DECENTRALIZED GRID TRADING */}
-            {activeTerminalTab === 'grid' && (
-              <form onSubmit={handleStartGridBotSubmit} className="space-y-4">
-                <div className="p-3.5 bg-slate-950/60 border border-slate-900 rounded-xl space-y-3.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-purple-400 font-sans flex items-center gap-1">
-                      <Layers className="w-3.5 h-3.5" /> High-Frequency Grid Bot
-                    </span>
-                    <Info className="w-3.5 h-3.5 text-slate-500 cursor-help" title="Configures dense buy/sell thresholds to trade volatility." />
-                  </div>
-
-                  {/* Range bounds */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-mono text-slate-400 uppercase">Lower Boundary (USD)</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={gridLower}
-                        onChange={(e) => setGridLower(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2 py-1.5 text-xs text-white font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-mono text-slate-400 uppercase">Upper Boundary (USD)</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={gridUpper}
-                        onChange={(e) => setGridUpper(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2 py-1.5 text-xs text-white font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Density and Capital allocation */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-mono text-slate-400 uppercase">Grid Density (Lines)</label>
-                      <input
-                        type="number"
-                        min="3"
-                        max="12"
-                        value={gridCount}
-                        onChange={(e) => setGridCount(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2 py-1.5 text-xs text-white font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-mono text-slate-400 uppercase">Allocation (USDC)</label>
-                      <input
-                        type="number"
-                        value={gridInvestment}
-                        onChange={(e) => setGridInvestment(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2 py-1.5 text-xs text-white font-mono"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase">Underlying Asset</label>
-                  <select
-                    value={tradeAsset}
-                    onChange={(e) => setTradeAsset(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-900 rounded-xl px-3 py-2.5 text-xs text-white font-mono"
-                  >
-                    {assets.filter(a => a.symbol !== 'USDC').map((asset) => (
-                      <option key={asset.symbol} value={asset.symbol}>{asset.symbol} ({asset.name})</option>
-                    ))}
-                  </select>
-                </div>
-
-                {tradeError && <p className="text-xs font-mono text-red-400 mt-1">{tradeError}</p>}
-
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400 text-slate-950 font-sans font-bold text-xs rounded-xl shadow-lg transition tracking-wide cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Play className="w-4 h-4 text-slate-950" />
-                  INITIALIZE GRID MATRIX BOT
-                </button>
-              </form>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
+
         </div>
 
-        {/* Center: Live Order Book with visual overlays (4 cols) */}
-        <div id="order-book-card" className="lg:col-span-4 p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md flex flex-col justify-between">
-          <div>
+        {/* Right Side: Live Buy & Sell Queue & Active queue (4 cols) */}
+        <div className="lg:col-span-4 space-y-6">
+          
+          {/* Live Buy & Sell Queue (Order Book) */}
+          <div id="order-book-card" className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md">
             <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-sans font-semibold text-slate-300">Live Depth Order Book</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-sans font-bold text-slate-300">Live Buy & Sell Queue 📊</span>
+                <span title="This list shows people around the world currently wanting to buy (green) or sell (red) this coin at different prices." className="cursor-help"><HelpCircle className="w-3.5 h-3.5 text-slate-500" /></span>
               </div>
-              <span className="text-[10px] font-mono text-slate-500 uppercase">{tradeAsset} Matcher</span>
+              <span className="text-[10px] font-sans text-cyan-400 uppercase font-bold">{tradeAsset} Live</span>
             </div>
 
             {/* Asks (Sells) */}
-            <div className="space-y-1 mb-2.5">
+            <div className="space-y-1 mb-2">
               {orderBook.asks.map((ask, idx) => (
                 <div key={`ask-${idx}`} className="relative h-5 flex items-center justify-between text-[11px] font-mono">
-                  {/* Depth Bar */}
                   <div 
                     className="absolute right-0 top-0 bottom-0 bg-red-950/15 border-r-2 border-red-500/25 transition-all duration-300"
                     style={{ width: `${(ask.total / maxDepthSize) * 100}%` }}
                   />
                   <span className="text-red-400 z-10 font-bold">${ask.price.toFixed(2)}</span>
-                  <span className="text-slate-300 z-10">{ask.size.toFixed(3)}</span>
-                  <span className="text-slate-500 z-10 mr-1">{ask.total.toFixed(2)}</span>
+                  <span className="text-slate-300 z-10">{ask.size.toFixed(2)} coins</span>
+                  <span className="text-slate-500 z-10 mr-1">${ask.total.toFixed(0)}</span>
                 </div>
               ))}
             </div>
 
             {/* Live Spread Row */}
             <div className="py-2 border-y border-slate-900/80 my-2 flex items-center justify-between px-1">
-              <span className="text-xs font-mono text-slate-400">Spread Offset</span>
+              <span className="text-xs font-sans text-slate-400">Current Price</span>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-mono font-bold text-white">${selectedAsset.price.toFixed(2)}</span>
-                <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/50 px-1 py-0.25 rounded">0.02%</span>
+                <span className="text-xs font-sans font-bold text-white">${selectedAsset.price.toFixed(2)}</span>
+                <span className="text-[9px] font-sans text-emerald-400 bg-emerald-950/50 px-1.5 py-0.25 rounded">Optimal</span>
               </div>
             </div>
 
@@ -1028,137 +1139,34 @@ export default function TradingView({
             <div className="space-y-1">
               {orderBook.bids.map((bid, idx) => (
                 <div key={`bid-${idx}`} className="relative h-5 flex items-center justify-between text-[11px] font-mono">
-                  {/* Depth Bar */}
                   <div 
                     className="absolute right-0 top-0 bottom-0 bg-emerald-950/15 border-r-2 border-emerald-500/25 transition-all duration-300"
                     style={{ width: `${(bid.total / maxDepthSize) * 100}%` }}
                   />
                   <span className="text-emerald-400 z-10 font-bold">${bid.price.toFixed(2)}</span>
-                  <span className="text-slate-300 z-10">{bid.size.toFixed(3)}</span>
-                  <span className="text-slate-500 z-10 mr-1">{bid.total.toFixed(2)}</span>
+                  <span className="text-slate-300 z-10">{bid.size.toFixed(2)} coins</span>
+                  <span className="text-slate-500 z-10 mr-1">${bid.total.toFixed(0)}</span>
                 </div>
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Right Side: Swap Widget & Active Limit Orders (4 cols) */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          
-          {/* Swap Widget */}
-          <div id="swap-widget-card" className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md">
-            <form onSubmit={handleExecuteSwapSubmit} className="space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-900 pb-3">
-                <span className="text-xs font-sans font-semibold text-slate-300">Frictionless Swap Widget</span>
-                <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 uppercase bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                  <Clock className="w-3 h-3 text-cyan-400" />
-                  Rate lock: {timeLeft}s
-                </div>
-              </div>
-
-              {/* FROM field */}
-              <div className="p-3 bg-slate-950/80 border border-slate-900 rounded-xl">
-                <div className="flex justify-between text-[10px] font-mono text-slate-500 mb-1">
-                  <span>Pay From</span>
-                  <span>Avail: {(balances[swapFrom] || 0).toLocaleString('en-US', { maximumFractionDigits: 4 })}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="swap-amount-input"
-                    type="number"
-                    step="any"
-                    placeholder="0.00"
-                    value={swapFromAmount}
-                    onChange={(e) => setSwapFromAmount(e.target.value)}
-                    className="w-full bg-transparent text-sm font-mono text-white focus:outline-none placeholder-slate-700"
-                  />
-                  <select
-                    id="swap-from-select"
-                    value={swapFrom}
-                    onChange={(e) => { setSwapFrom(e.target.value); setSwapError(''); }}
-                    className="bg-slate-900 border border-slate-800 text-xs text-slate-200 rounded-lg px-2 py-1 font-sans font-semibold focus:outline-none cursor-pointer"
-                  >
-                    {assets.map((asset) => (
-                      <option key={asset.symbol} value={asset.symbol}>{asset.symbol}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* SWAP icon bridge */}
-              <div className="flex justify-center -my-2.5 relative z-10">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const temp = swapFrom;
-                    setSwapFrom(swapTo);
-                    setSwapTo(temp);
-                    setSwapFromAmount('');
-                  }}
-                  className="p-1.5 bg-slate-900 hover:bg-slate-850 text-cyan-400 border border-slate-800 hover:border-slate-700 rounded-lg shadow-md hover:shadow-cyan-500/5 transition-all cursor-pointer"
-                >
-                  <ArrowLeftRight className="w-3.5 h-3.5 rotate-90" />
-                </button>
-              </div>
-
-              {/* TO field */}
-              <div className="p-3 bg-slate-950/80 border border-slate-900 rounded-xl">
-                <div className="flex justify-between text-[10px] font-mono text-slate-500 mb-1">
-                  <span>Receive Target</span>
-                  <span>Avail: {(balances[swapTo] || 0).toLocaleString('en-US', { maximumFractionDigits: 4 })}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-mono text-slate-300">
-                    {swapToAmount > 0 ? swapToAmount.toLocaleString('en-US', { maximumFractionDigits: 6 }) : '0.00'}
-                  </span>
-                  <select
-                    id="swap-to-select"
-                    value={swapTo}
-                    onChange={(e) => { setSwapTo(e.target.value); setSwapError(''); }}
-                    className="bg-slate-900 border border-slate-800 text-xs text-slate-200 rounded-lg px-2 py-1 font-sans font-semibold focus:outline-none cursor-pointer"
-                  >
-                    {assets.map((asset) => (
-                      <option key={asset.symbol} value={asset.symbol}>{asset.symbol}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex justify-between text-[10px] font-mono text-slate-500 px-1">
-                <span>Direct rate index:</span>
-                <span>1 {swapFrom} ≈ {swapRate.toFixed(6)} {swapTo}</span>
-              </div>
-
-              {swapError && (
-                <p className="text-xs font-mono text-red-400 mt-1">{swapError}</p>
-              )}
-
-              <button
-                id="swap-execute-btn"
-                type="submit"
-                className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-sans font-bold text-xs rounded-xl shadow-lg transition cursor-pointer"
-              >
-                SWAP ASSETS INSTANTLY
-              </button>
-            </form>
-          </div>
-
-          {/* Active Order Queue (Spot & Algorithmic & Grid levels) */}
-          <div id="active-orders-card" className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md flex-1">
+          {/* Active Queue / Pending Moves */}
+          <div id="active-orders-card" className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md">
             <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-3">
-              <span className="text-xs font-sans font-semibold text-slate-300">Active Queue</span>
-              <span className="text-[10px] font-mono text-slate-500 uppercase">Pending / Algorithmic</span>
+              <span className="text-xs font-sans font-bold text-slate-300">My Active Queue ⏱️</span>
+              <span className="text-[10px] font-sans text-slate-500 uppercase font-bold">Pending Swaps</span>
             </div>
 
             {activeOrders.length === 0 && gridBots.filter(b => b.active).length === 0 ? (
               <div className="py-6 text-center border border-dashed border-slate-900/60 rounded-xl">
-                <p className="text-[11px] font-mono text-slate-500">No active limit or algo orders in queue</p>
+                <p className="text-[11px] font-sans text-slate-500">Your queue is empty. Ready to buy or set prices!</p>
               </div>
             ) : (
               <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
                 {/* Active Grid Bots */}
                 {gridBots.filter(bot => bot.active).map(bot => (
-                  <div key={bot.id} className="p-3 bg-purple-950/15 border border-purple-900/30 rounded-xl space-y-2">
+                  <div key={bot.id} className="p-3 bg-purple-950/10 border border-purple-900/30 rounded-xl space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
@@ -1175,100 +1183,61 @@ export default function TradingView({
                       <div>Range: <span className="text-slate-300">${bot.lowerPrice} - ${bot.upperPrice}</span></div>
                       <div className="text-right">Earnings: <span className="text-emerald-400 font-bold">+${bot.profitEarned.toFixed(2)}</span></div>
                     </div>
-                    <div className="w-full bg-slate-950 h-1 rounded-full overflow-hidden border border-slate-900">
-                      <div className="bg-purple-500 h-1 rounded-full animate-pulse" style={{ width: '100%' }} />
-                    </div>
                   </div>
                 ))}
 
-                {/* Normal / Algo Orders */}
-                {activeOrders.map((order) => {
-                  const isAlgo = ['twap', 'vwap', 'trailing-stop', 'bracket', 'iceberg'].includes(order.type);
-                  return (
-                    <div key={order.id} className={`p-3 border rounded-xl flex items-center justify-between text-xs ${
-                      isAlgo ? 'bg-emerald-950/10 border-emerald-900/30' : 'bg-slate-900/20 border-slate-900'
-                    }`}>
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`font-mono font-bold ${order.side === 'buy' ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {order.side.toUpperCase()}
+                {/* Normal Orders */}
+                {activeOrders.map((order) => (
+                  <div key={order.id} className="p-3 bg-slate-900/40 border border-slate-900 rounded-xl flex items-center justify-between text-xs">
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`font-sans font-bold ${order.side === 'buy' ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {order.side === 'buy' ? 'BUYING' : 'SELLING'}
+                        </span>
+                        <span className="font-sans font-bold text-slate-200">{order.symbol}</span>
+                        {order.type !== 'limit' && (
+                          <span className="px-1.5 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-900/30 rounded text-[9px] font-sans font-bold uppercase">
+                            {order.type}
                           </span>
-                          <span className="font-sans font-semibold text-slate-200">{order.symbol}</span>
-                          {isAlgo && (
-                            <span className="px-1 bg-emerald-950 text-emerald-400 border border-emerald-900/40 rounded text-[8px] font-mono uppercase font-bold">
-                              {order.type}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Custom order specific details */}
-                        {order.type === 'limit' && (
-                          <span className="text-[10px] font-mono text-slate-500">Price: ${order.price.toFixed(2)}</span>
-                        )}
-                        {order.type === 'twap' && (
-                          <span className="text-[10px] font-mono text-slate-400">
-                            Slices: {order.twapFilledChunks}/{order.twapTotalChunks} • Int: {order.twapIntervalSeconds}s
-                          </span>
-                        )}
-                        {order.type === 'iceberg' && (
-                          <span className="text-[10px] font-mono text-cyan-400">
-                            Iceberg ({order.icebergDisclosedPercent}% disclosed) • {order.twapFilledChunks}/{order.twapTotalChunks} filled
-                          </span>
-                        )}
-                        {order.type === 'trailing-stop' && (
-                          <span className="text-[10px] font-mono text-slate-400">
-                            Trailing Dist: {order.trailingStopPercent}% • High: ${order.trailingHighestPrice?.toFixed(2)}
-                          </span>
-                        )}
-                        {order.type === 'bracket' && (
-                          <div className="flex flex-col text-[9px] font-mono text-slate-500">
-                            <span className="text-emerald-500">TP: ${order.bracketTakeProfit?.toFixed(2)}</span>
-                            <span className="text-red-500">SL: ${order.bracketStopLoss?.toFixed(2)}</span>
-                          </div>
                         )}
                       </div>
-
-                      <div className="text-right flex items-center gap-2.5">
-                        <div className="flex flex-col">
-                          <span className="font-mono text-slate-300">{order.amount} {order.symbol}</span>
-                          <span className="text-[9px] font-mono text-cyan-400">
-                            {order.type === 'twap' || order.type === 'iceberg' 
-                              ? `${((order.twapFilledChunks || 0) / (order.twapTotalChunks || 1) * 100).toFixed(0)}% Filled` 
-                              : '0% Filled'}
-                          </span>
-                        </div>
-                        <button
-                          id={`cancel-order-${order.id}`}
-                          onClick={() => onCancelOrder(order.id)}
-                          className="px-2 py-1 bg-red-950/40 hover:bg-red-900 text-red-400 rounded-lg text-[10px] font-mono transition cursor-pointer border border-red-900/30"
-                        >
-                          Cancel
-                        </button>
-                      </div>
+                      <span className="text-[10px] font-sans text-slate-400">Trigger Target: ${order.price.toFixed(2)}</span>
                     </div>
-                  );
-                })}
+
+                    <div className="text-right flex items-center gap-2.5">
+                      <span className="font-sans font-semibold text-slate-300">{order.amount.toFixed(4)} coins</span>
+                      <button
+                        onClick={() => onCancelOrder(order.id)}
+                        className="px-2 py-1 bg-red-950/40 hover:bg-red-900 text-red-400 rounded-lg text-[10px] font-sans transition cursor-pointer border border-red-900/30 font-bold"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
+
         </div>
+
       </div>
 
-      {/* SECONDARY ROW: Algorithmic Arbitrage Path Optimizer & Volatility Controls */}
+      {/* FOOTER ROW: Dynamic Slippage Sentinel & Arbitrage Optimizer */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left 6 Cols: Multi-Hop Arbitrage Path Optimizer (Features 5) */}
+        {/* Left: Multi-hop Arbitrage Optimizer */}
         <div id="arbitrage-optimizer" className="lg:col-span-7 p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md">
           <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-4">
             <div className="flex items-center gap-2">
               <Cpu className="w-4 h-4 text-emerald-400 animate-pulse" />
-              <span className="text-xs font-sans font-semibold text-slate-300">Multi-Hop Arbitrage Path Optimizer</span>
+              <span className="text-xs font-sans font-bold text-slate-300">Coin Swap Shortcut Optimizer 🚀</span>
             </div>
-            <span className="text-[10px] font-mono text-slate-500 uppercase">Cross-Pair Deviation Scanner</span>
+            <span className="text-[10px] font-sans text-slate-500 uppercase font-bold">Smart Routing</span>
           </div>
 
           <p className="text-xs text-slate-400 font-sans leading-relaxed mb-4">
-            Real-time atomic scanner analyzing microscopic pricing anomalies across linked pools. Execute atomic loops instantly to capture risk-free spreads.
+            Real-time scanner analyzing linked coin pools to find complex short-cut pathways. Click "Capture Loop" to instantly swap and gain small bonus reward coins with zero effort!
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1277,19 +1246,18 @@ export default function TradingView({
               
               return (
                 <div key={path.id} className="p-4 bg-slate-950/60 border border-slate-900 hover:border-slate-800 rounded-xl space-y-4 transition-colors">
-                  <div className="flex items-center justify-between text-xs font-mono">
-                    <span className="px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-900/40 rounded-lg font-bold">
-                      +{path.anomalousReturnPercent}% Spread
+                  <div className="flex items-center justify-between text-xs font-sans">
+                    <span className="px-2.5 py-1 bg-emerald-950 text-emerald-400 border border-emerald-900/40 rounded-xl font-bold">
+                      +{path.anomalousReturnPercent}% Bonus
                     </span>
-                    <span className="text-slate-500">Depth: ${path.liquidityDepthUsd.toLocaleString()}</span>
+                    <span className="text-slate-500 font-mono">Depth: ${path.liquidityDepthUsd.toLocaleString()}</span>
                   </div>
 
-                  {/* Node loop visualizer */}
                   <div className="flex items-center justify-between px-2 py-2 bg-slate-900/30 border border-slate-900 rounded-lg">
                     {path.route.map((token, idx) => (
                       <React.Fragment key={idx}>
                         <div className="flex flex-col items-center">
-                          <span className="text-[10px] font-mono font-bold text-white px-2 py-1 bg-slate-950 border border-slate-800 rounded">
+                          <span className="text-[10px] font-sans font-bold text-white px-2 py-1 bg-slate-950 border border-slate-800 rounded">
                             {token}
                           </span>
                         </div>
@@ -1303,7 +1271,7 @@ export default function TradingView({
                   <button
                     onClick={() => handleTriggerArbitrage(path)}
                     disabled={isCapturing}
-                    className={`w-full py-2 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 cursor-pointer transition ${
+                    className={`w-full py-2 rounded-xl text-xs font-sans font-bold flex items-center justify-center gap-1.5 cursor-pointer transition ${
                       isCapturing 
                         ? 'bg-emerald-900 text-emerald-100 border border-emerald-700' 
                         : 'bg-slate-900 hover:bg-slate-850 text-emerald-400 border border-emerald-900/60'
@@ -1312,12 +1280,12 @@ export default function TradingView({
                     {isCapturing ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        SWEEPING LOOP ESCROW...
+                        Capturing bonus loop...
                       </>
                     ) : (
                       <>
                         <Zap className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                        CAPTURE ARBITRAGE
+                        Capture Loop! 🚀
                       </>
                     )}
                   </button>
@@ -1327,45 +1295,47 @@ export default function TradingView({
           </div>
         </div>
 
-        {/* Right 5 Cols: Volatility Controls & Slippage Auto-Mitigation Console (Features 6 & 9) */}
+        {/* Right: Price Change Buffer & Volatility Sentinel */}
         <div id="volatility-control-console" className="lg:col-span-5 p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-4">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-cyan-400" />
-                <span className="text-xs font-sans font-semibold text-slate-300">Volatility & Slippage Sentinel</span>
+                <span className="text-xs font-sans font-bold text-slate-300">Price Change Buffer & Safety Sentinel</span>
               </div>
-              <span className="text-[10px] font-mono text-slate-500 uppercase">Risk Guard</span>
+              <span className="text-[10px] font-sans text-slate-500 uppercase font-bold">Safety Desk</span>
             </div>
 
-            {/* Part A: Dynamic Slippage Auto-Mitigation Engine */}
+            {/* Price Change Buffer (Slippage Tolerance) */}
             <div className="space-y-3.5 pb-4 border-b border-slate-900/60">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300 font-sans flex items-center gap-1.5">
-                  <Activity className="w-4 h-4 text-cyan-400" /> Slippage Auto-Mitigation
+                  <Activity className="w-4 h-4 text-cyan-400" /> Price Change Buffer 🛡️
                 </span>
-                <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold ${
-                  dynamicImpactSlippage < 0.1 ? 'bg-emerald-950 text-emerald-400' : 'bg-amber-950 text-amber-400 animate-pulse'
-                }`}>
-                  {dynamicImpactSlippage < 0.1 ? 'OPTIMAL DEPTH' : 'SLIPPAGE EXPOSURE'}
+                <span className="px-2 py-0.5 rounded text-[9px] font-sans font-bold bg-emerald-950 text-emerald-400">
+                  Optimal Protection
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+              <p className="text-[11px] text-slate-400 leading-normal font-sans">
+                Sometimes coin prices change in the millisecond it takes to process. This buffer protects you by automatically cancelling the order if the price shifts too fast.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3 text-xs font-sans">
                 <div className="p-2.5 bg-slate-900/20 border border-slate-900 rounded-xl">
-                  <span className="text-[9px] text-slate-500 uppercase block">Impact Slippage</span>
+                  <span className="text-[9px] text-slate-500 uppercase block font-bold">Expected Price shift</span>
                   <span className="text-white font-bold text-xs mt-0.5">{(dynamicImpactSlippage * 100).toFixed(3)}%</span>
                 </div>
                 <div className="p-2.5 bg-slate-900/20 border border-slate-900 rounded-xl">
-                  <span className="text-[9px] text-slate-500 uppercase block">Book Thickness Index</span>
-                  <span className="text-cyan-400 font-bold text-xs mt-0.5">{liquidityDepthIndex} / 100</span>
+                  <span className="text-[9px] text-slate-500 uppercase block font-bold">Market Depth Health</span>
+                  <span className="text-cyan-400 font-bold text-xs mt-0.5">{liquidityDepthIndex}%</span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px] font-mono">
-                  <label className="text-slate-400">Slippage Tolerance Threshold</label>
-                  <span className="text-cyan-400 font-bold">{slippagePercent}%</span>
+                <div className="flex justify-between items-center text-[10px] font-sans font-bold">
+                  <label className="text-slate-400">Allowed Price shift Buffer</label>
+                  <span className="text-cyan-400">{slippagePercent}%</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <input
@@ -1380,34 +1350,34 @@ export default function TradingView({
                   />
                   <button
                     onClick={() => setAutoSlippage(!autoSlippage)}
-                    className={`px-2 py-1 text-[9px] font-mono font-bold rounded border shrink-0 cursor-pointer transition ${
+                    className={`px-2.5 py-1 text-[9px] font-sans font-bold rounded-lg border shrink-0 cursor-pointer transition ${
                       autoSlippage 
                         ? 'bg-cyan-950 border-cyan-800 text-cyan-400' 
-                        : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-slate-300'
+                        : 'bg-slate-950 border-slate-800 text-slate-500'
                     }`}
                   >
-                    {autoSlippage ? 'AUTO' : 'MANUAL'}
+                    {autoSlippage ? 'AUTO SHIELD' : 'MANUAL'}
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Part B: Flash-Crash Volatility Circuit Breaker */}
+            {/* Circuit Breaker */}
             <div className="space-y-3.5 pt-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300 font-sans flex items-center gap-1.5">
-                  <Flame className="w-4 h-4 text-red-400 animate-pulse" /> Volatility Circuit Breaker
+                  <Flame className="w-4 h-4 text-red-400 animate-pulse" /> Flash-Crash Shield 🛡️
                 </span>
-                <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold ${
+                <span className={`px-2 py-0.5 rounded text-[9px] font-sans font-bold ${
                   circuitBreakerArmed ? 'bg-emerald-950 text-emerald-400' : 'bg-slate-900 text-slate-500'
                 }`}>
-                  {circuitBreakerArmed ? 'ARMED & SHIELDED' : 'STANDBY'}
+                  {circuitBreakerArmed ? 'Armed & Watching' : 'Off'}
                 </span>
               </div>
 
               <div className="flex items-center gap-3">
                 <div className="flex-1 space-y-1">
-                  <label className="text-[9px] font-mono text-slate-500 uppercase">Panic Percent Threshold</label>
+                  <label className="text-[9px] font-sans text-slate-500 uppercase font-bold">Panic Trigger Threshold</label>
                   <div className="relative">
                     <input
                       type="number"
@@ -1421,23 +1391,24 @@ export default function TradingView({
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => onToggleCircuitBreaker(!circuitBreakerArmed, circuitBreakerPercent)}
-                  className={`px-4 py-3 text-xs font-mono font-bold rounded-xl border cursor-pointer transition shrink-0 ${
+                  className={`px-4 py-3 text-xs font-sans font-bold rounded-xl border cursor-pointer transition shrink-0 ${
                     circuitBreakerArmed 
                       ? 'bg-emerald-950/30 border-emerald-900 text-emerald-400' 
                       : 'bg-slate-900 hover:bg-slate-850 border-slate-800 text-slate-400'
                   }`}
                 >
-                  {circuitBreakerArmed ? 'DISARM SHIELD' : 'ARM SHIELD'}
+                  {circuitBreakerArmed ? 'Turn Shield Off' : 'Turn Shield On'}
                 </button>
               </div>
 
               <button
                 onClick={onTriggerPanic}
-                className="w-full py-2.5 bg-red-950/40 border border-red-900/50 hover:bg-red-900 text-red-400 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:shadow-lg transition"
+                className="w-full py-2.5 bg-red-950/40 border border-red-900/50 hover:bg-red-900 text-red-400 rounded-xl text-xs font-sans font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:shadow-lg transition"
               >
                 <ShieldAlert className="w-4 h-4 text-red-400" />
-                TRIGGER DEFENSIVE EMERGENCY STOP (PANIC BUTTON)
+                🚨 ACTIVATE SAFETY LOCK (PANIC STOP)
               </button>
             </div>
           </div>

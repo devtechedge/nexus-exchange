@@ -18,7 +18,9 @@ import {
   Square,
   RefreshCw,
   Info,
-  ShieldAlert
+  ShieldAlert,
+  Star,
+  Coins
 } from 'lucide-react';
 import { Asset, Transaction } from '../types';
 
@@ -36,6 +38,16 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
   const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>('1W');
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; value: number; label: string } | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
+
+  // Sparkly Starred Watchlist Favorites State
+  const [starredCoins, setStarredCoins] = useState<string[]>(['BTC', 'ETH', 'SOL']);
+
+  const handleToggleStar = (symbol: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setStarredCoins(prev => 
+      prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol]
+    );
+  };
 
   // Dust Sweeper State
   const [showDustModal, setShowDustModal] = useState(false);
@@ -238,14 +250,23 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
     setHoveredPoint(null);
   };
 
+  const timeframeLabels: Record<Timeframe, string> = {
+    '1H': 'Past Hour',
+    '1D': 'Today',
+    '1W': 'Past Week',
+    '1M': 'Past Month',
+    '1Y': 'Past Year',
+    'ALL': 'All Time'
+  };
+
   return (
     <div className="space-y-6">
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Dynamic Net Worth card */}
-        <div id="stat-networth" className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md flex flex-col justify-between">
+        <div id="stat-networth" className="p-5 bg-gradient-to-br from-slate-900 to-slate-950 border border-cyan-500/20 rounded-2xl backdrop-blur-md flex flex-col justify-between shadow-lg shadow-cyan-950/20">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Net Wallet Valuation</span>
+            <span className="text-[10px] font-sans text-cyan-400 uppercase tracking-wider font-bold">My Crypto Piggy Bank 🐷</span>
             <Wallet className="w-4 h-4 text-cyan-400" />
           </div>
           <div className="mt-4">
@@ -258,53 +279,56 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
               ) : (
                 <TrendingDown className="w-3.5 h-3.5 text-red-500" />
               )}
-              <span className={`text-[11px] font-mono font-medium ${stats.change >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                {stats.change >= 0 ? '+' : ''}
-                {stats.changePercent.toFixed(2)}% ({selectedTimeframe})
+              <span className={`text-[11px] font-sans font-semibold ${stats.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {stats.change >= 0 ? 'Won ' : 'Down '}
+                {stats.changePercent.toFixed(2)}% ({timeframeLabels[selectedTimeframe]})
               </span>
             </div>
+            <p className="text-[10px] text-slate-500 mt-1 font-sans">
+              {stats.change >= 0 ? '📈 You made some rewards recently!' : '🧊 Coins are cooling down! Good time to learn.'}
+            </p>
           </div>
         </div>
 
         {/* High Watermark */}
         <div id="stat-high" className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Watermark High</span>
+            <span className="text-[10px] font-sans text-slate-400 uppercase tracking-wider">Period High-Watermark 📈</span>
             <TrendingUp className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="mt-4">
             <h3 className="text-xl font-sans font-bold text-slate-200 tracking-tight">
               ${stats.high.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </h3>
-            <p className="text-[10px] font-mono text-slate-500 mt-1.5">Highest point in period</p>
+            <p className="text-[10px] font-sans text-slate-500 mt-1.5">Your peak piggy bank size in this period</p>
           </div>
         </div>
 
         {/* Period Low */}
         <div id="stat-low" className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Period Floor</span>
+            <span className="text-[10px] font-sans text-slate-400 uppercase tracking-wider">Period Floor 📉</span>
             <TrendingDown className="w-4 h-4 text-red-400" />
           </div>
           <div className="mt-4">
             <h3 className="text-xl font-sans font-bold text-slate-200 tracking-tight">
               ${stats.low.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </h3>
-            <p className="text-[10px] font-mono text-slate-500 mt-1.5">Lowest point in period</p>
+            <p className="text-[10px] font-sans text-slate-500 mt-1.5">The lowest value hit recently</p>
           </div>
         </div>
 
         {/* Smart Indicators */}
         <div id="stat-activity" className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Active Assets</span>
+            <span className="text-[10px] font-sans text-slate-400 uppercase tracking-wider">Active Digital Coins 🪙</span>
             <Layers className="w-4 h-4 text-purple-400" />
           </div>
           <div className="mt-4">
             <h3 className="text-xl font-sans font-bold text-slate-200 tracking-tight">
-              {assets.filter(a => a.balance > 0 || a.staked > 0).length} Assets
+              {assets.filter(a => a.balance > 0 || a.staked > 0).length} Coins
             </h3>
-            <p className="text-[10px] font-mono text-slate-500 mt-1.5">Across Wallet & Staking pools</p>
+            <p className="text-[10px] font-sans text-slate-500 mt-1.5">Coins actively growing or saved</p>
           </div>
         </div>
       </div>
@@ -315,12 +339,12 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
           <div>
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-cyan-400" />
-              <h2 className="text-sm font-sans font-semibold text-white">Dynamic Asset Performance</h2>
+              <h2 className="text-sm font-sans font-bold text-white">My Growth Chart 📈</h2>
             </div>
-            <p className="text-xs font-mono text-slate-500 mt-1">
+            <p className="text-xs font-sans text-slate-400 mt-1">
               {hoveredPoint 
-                ? `Value tracked at: ${hoveredPoint.label}` 
-                : 'Interactive performance index over time'}
+                ? `On ${hoveredPoint.label}, your coins were worth $${hoveredPoint.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
+                : 'Hover or slide over the chart lines below to see how your balance grew!'}
             </p>
           </div>
 
@@ -330,13 +354,13 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
               <button
                 key={tf}
                 onClick={() => setSelectedTimeframe(tf)}
-                className={`px-3 py-1 text-[10px] font-mono font-medium rounded-md transition-all duration-150 ${
+                className={`px-2.5 py-1 text-[10px] font-sans font-semibold rounded-md transition-all duration-150 cursor-pointer ${
                   selectedTimeframe === tf 
                     ? 'bg-slate-800 text-cyan-400 shadow-sm' 
-                    : 'text-slate-500 hover:text-slate-300'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {tf}
+                {timeframeLabels[tf]}
               </button>
             ))}
           </div>
@@ -347,15 +371,15 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
           {/* Hover state tooltip display inside the canvas */}
           {hoveredPoint && (
             <div 
-              className="absolute pointer-events-none bg-slate-950/90 border border-slate-800/80 rounded-xl px-3 py-2 text-xs font-mono shadow-2xl z-20 flex flex-col gap-0.5 backdrop-blur-sm"
+              className="absolute pointer-events-none bg-slate-950/95 border border-cyan-500/30 rounded-xl px-3 py-2 text-xs font-sans shadow-2xl z-20 flex flex-col gap-0.5 backdrop-blur-sm"
               style={{
                 left: `${(hoveredPoint.x / svgDimensions.width) * 100}%`,
                 transform: 'translateX(-50%)',
                 top: '12px'
               }}
             >
-              <span className="text-[9px] text-slate-500 uppercase">{hoveredPoint.label}</span>
-              <span className="text-white font-bold">${hoveredPoint.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span className="text-[9px] text-cyan-400 uppercase font-bold">On {hoveredPoint.label}</span>
+              <span className="text-white font-bold text-sm">${hoveredPoint.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
           )}
 
@@ -456,13 +480,14 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
         <div id="dashboard-watchlist" className="lg:col-span-1 p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md flex flex-col justify-between h-fit">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-sans font-semibold text-slate-300">Market Watchlist</span>
-              <span className="text-[10px] font-mono text-slate-500 uppercase">Live Sparklines</span>
+              <span className="text-xs font-sans font-bold text-slate-300">My Favorite Coins watchlist ⭐</span>
+              <span className="text-[10px] font-sans text-slate-500 uppercase">Trend Indicators</span>
             </div>
 
-            <div className="space-y-3.5">
+            <div className="space-y-3">
               {assets.map((asset) => {
                 const isPositive = asset.change24h >= 0;
+                const isStarred = starredCoins.includes(asset.symbol);
                 
                 // SVG Sparkline path builder
                 const minPrice = Math.min(...asset.sparkline);
@@ -475,22 +500,34 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
                 }).join(' ');
 
                 return (
-                  <div key={asset.symbol} className="p-3 bg-slate-900/10 hover:bg-slate-900/35 border border-slate-900/50 rounded-xl flex items-center justify-between transition-colors">
-                    {/* Symbol / Name */}
-                    <div className="flex flex-col">
-                      <span className="text-xs font-sans font-bold text-white tracking-wider">{asset.symbol}</span>
-                      <span className="text-[10px] font-mono text-slate-500">{asset.name}</span>
+                  <div key={asset.symbol} className="p-3 bg-slate-900/20 hover:bg-slate-900/35 border border-slate-900/50 rounded-xl flex items-center justify-between transition-colors">
+                    {/* Star / Symbol / Name */}
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={(e) => handleToggleStar(asset.symbol, e)}
+                        className="p-1 hover:bg-slate-800 rounded transition cursor-pointer text-slate-500 hover:text-amber-400"
+                      >
+                        <Star className={`w-3.5 h-3.5 ${isStarred ? 'fill-amber-400 text-amber-400' : 'text-slate-600'}`} />
+                      </button>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-sans font-bold text-white tracking-wider flex items-center gap-1">
+                          {asset.symbol}
+                        </span>
+                        <span className="text-[9px] font-sans text-slate-400">{asset.name}</span>
+                      </div>
                     </div>
 
                     {/* Sparkline Visual */}
-                    <svg className="w-16 h-6 overflow-visible">
-                      <polyline
-                        fill="none"
-                        stroke={isPositive ? '#10b981' : '#ef4444'}
-                        strokeWidth="1.5"
-                        points={sparkPoints}
-                      />
-                    </svg>
+                    <div className="hidden sm:block">
+                      <svg className="w-14 h-5 overflow-visible">
+                        <polyline
+                          fill="none"
+                          stroke={isPositive ? '#10b981' : '#ef4444'}
+                          strokeWidth="1.2"
+                          points={sparkPoints}
+                        />
+                      </svg>
+                    </div>
 
                     {/* Pricing details & Quick-actions */}
                     <div className="text-right flex items-center gap-2.5">
@@ -498,25 +535,25 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
                         <span className="text-xs font-mono font-semibold text-slate-200">
                           ${asset.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
-                        <span className={`text-[10px] font-mono flex items-center justify-end gap-0.5 ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
-                          {isPositive ? '+' : ''}
-                          {asset.change24h.toFixed(2)}%
+                        <span className={`text-[10px] font-sans font-bold flex items-center justify-end gap-0.5 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {isPositive ? 'Up ' : 'Down '}
+                          {Math.abs(asset.change24h).toFixed(1)}% {isPositive ? '🔥' : '🧊'}
                         </span>
                       </div>
                       
                       {/* Action buttons */}
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1 shrink-0">
                         <button
                           id={`quick-buy-${asset.symbol}`}
                           onClick={() => onTriggerQuickTrade(asset.symbol, 'buy')}
-                          className="px-1.5 py-0.5 bg-cyan-950 text-cyan-400 hover:bg-cyan-900 rounded text-[9px] font-mono cursor-pointer"
+                          className="px-1.5 py-0.5 bg-cyan-950 text-cyan-400 hover:bg-cyan-900 rounded text-[9px] font-sans font-semibold cursor-pointer"
                         >
                           BUY
                         </button>
                         <button
                           id={`quick-sell-${asset.symbol}`}
                           onClick={() => onTriggerQuickTrade(asset.symbol, 'sell')}
-                          className="px-1.5 py-0.5 bg-slate-900 text-slate-400 hover:bg-slate-800 rounded text-[9px] font-mono cursor-pointer"
+                          className="px-1.5 py-0.5 bg-slate-900 text-slate-400 hover:bg-slate-800 rounded text-[9px] font-sans font-semibold cursor-pointer"
                         >
                           SELL
                         </button>
@@ -533,31 +570,31 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
         <div id="asset-allocation" className="lg:col-span-2 p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-sans font-semibold text-slate-300">Portfolio Distribution</span>
+              <span className="text-xs font-sans font-bold text-slate-300">How My Balance is Distributed 🍰</span>
               <div className="flex items-center gap-2">
                 {dustAssets.length > 0 && (
                   <button
                     id="dust-sweeper-trigger"
                     onClick={() => setShowDustModal(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 border border-amber-500/30 text-amber-400 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer shadow-sm shadow-amber-950/10 animate-pulse"
+                    className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/35 hover:to-orange-500/35 border border-amber-500/40 text-amber-400 rounded-xl text-[10px] font-sans font-bold transition-all cursor-pointer animate-pulse"
                   >
                     <Sparkles className="w-3 h-3 text-amber-400" />
-                    SWEEP DUST ({dustAssets.length})
+                    🧹 Sweep Spare Change ({dustAssets.length})
                   </button>
                 )}
-                <span className="text-[10px] font-mono text-slate-500 uppercase">Available Assets</span>
+                <span className="text-[10px] font-sans text-slate-500 uppercase">My Coins</span>
               </div>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-900">
-                    <th className="py-2.5 text-[10px] font-mono text-slate-500 uppercase">Asset</th>
-                    <th className="py-2.5 text-right text-[10px] font-mono text-slate-500 uppercase">Price</th>
-                    <th className="py-2.5 text-right text-[10px] font-mono text-slate-500 uppercase">Balance</th>
-                    <th className="py-2.5 text-right text-[10px] font-mono text-slate-500 uppercase">Staked Balance</th>
-                    <th className="py-2.5 text-right text-[10px] font-mono text-slate-500 uppercase">Total Valuation</th>
+                  <tr className="border-b border-slate-900/80">
+                    <th className="py-2.5 text-[10px] font-sans text-slate-400 uppercase font-bold">Coin Name</th>
+                    <th className="py-2.5 text-right text-[10px] font-sans text-slate-400 uppercase font-bold">Current Value per Coin</th>
+                    <th className="py-2.5 text-right text-[10px] font-sans text-slate-400 uppercase font-bold">Amount Owned</th>
+                    <th className="py-2.5 text-right text-[10px] font-sans text-slate-400 uppercase font-bold">Coins Saved & Growing</th>
+                    <th className="py-2.5 text-right text-[10px] font-sans text-slate-400 uppercase font-bold">Total Value</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-900/40">
@@ -569,7 +606,7 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
                     return (
                       <tr key={asset.symbol} className="hover:bg-slate-900/10">
                         <td className="py-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <span className="text-xs font-sans font-bold text-white tracking-wider">{asset.symbol}</span>
                             <span className="text-[10px] font-sans text-slate-500">{asset.name}</span>
                           </div>
@@ -582,14 +619,14 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
                         </td>
                         <td className="py-3 text-right font-mono text-xs text-slate-300">
                           {asset.staked > 0 ? (
-                            <span className="text-teal-400">
+                            <span className="text-teal-400 font-bold">
                               {asset.staked.toLocaleString('en-US', { maximumFractionDigits: 4 })}
                             </span>
                           ) : (
-                            <span className="text-slate-500">0.00</span>
+                            <span className="text-slate-600">0.00</span>
                           )}
                         </td>
-                        <td className="py-3 text-right font-mono text-xs font-semibold text-white">
+                        <td className="py-3 text-right font-sans text-xs font-bold text-white">
                           ${valuation.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                       </tr>
@@ -607,68 +644,64 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-sans font-semibold text-slate-300">Recent Transactions Ledger</span>
+            <span className="text-xs font-sans font-bold text-slate-300">My Activity Log (History of moves) 📜</span>
           </div>
-          <span className="text-[10px] font-mono text-slate-500 uppercase">Audit Records</span>
+          <span className="text-[10px] font-sans text-slate-500 uppercase">Completed Moves</span>
         </div>
 
         {transactions.length === 0 ? (
           <div className="py-8 text-center bg-slate-900/10 border border-dashed border-slate-900 rounded-xl">
-            <p className="text-xs font-mono text-slate-500">No transactions recorded yet in this session</p>
+            <p className="text-xs font-sans text-slate-500">No transactions recorded yet in this session</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-900">
-                  <th className="py-2 text-[10px] font-mono text-slate-500 uppercase">Tx Type</th>
-                  <th className="py-2 text-[10px] font-mono text-slate-500 uppercase">Asset</th>
-                  <th className="py-2 text-right text-[10px] font-mono text-slate-500 uppercase">Quantity</th>
-                  <th className="py-2 text-right text-[10px] font-mono text-slate-500 uppercase">Rate</th>
-                  <th className="py-2 text-right text-[10px] font-mono text-slate-500 uppercase">Status</th>
-                  <th className="py-2 text-right text-[10px] font-mono text-slate-500 uppercase">Timestamp</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-900/30">
-                {transactions.slice(0, 5).map((tx) => (
-                  <tr key={tx.id} className="hover:bg-slate-900/5">
-                    <td className="py-2.5">
-                      <div className="flex items-center gap-1.5">
-                        {tx.type === 'buy' && <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500" />}
-                        {tx.type === 'sell' && <ArrowDownLeft className="w-3.5 h-3.5 text-red-500" />}
-                        {tx.type === 'deposit' && <PlusCircle className="w-3.5 h-3.5 text-blue-500" />}
-                        {tx.type === 'stake' && <Activity className="w-3.5 h-3.5 text-teal-500" />}
-                        {tx.type === 'unstake' && <ArrowDownLeft className="w-3.5 h-3.5 text-amber-500" />}
-                        {tx.type === 'swap' && <ArrowRight className="w-3.5 h-3.5 text-purple-500" />}
-                        <span className="text-xs font-mono uppercase text-slate-300">{tx.type}</span>
-                      </div>
-                    </td>
-                    <td className="py-2.5">
-                      <span className="text-xs font-sans font-semibold text-slate-200">
-                        {tx.targetAsset ? `${tx.asset} → ${tx.targetAsset}` : tx.asset}
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-right font-mono text-xs text-slate-300">
-                      {tx.amount.toLocaleString('en-US', { maximumFractionDigits: 6 })} {tx.asset}
-                      {tx.targetAmount && (
-                        <span className="text-slate-500"> / {tx.targetAmount.toLocaleString('en-US', { maximumFractionDigits: 6 })} {tx.targetAsset}</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 text-right font-mono text-xs text-slate-400">
-                      {tx.price ? `$${tx.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
-                    </td>
-                    <td className="py-2.5 text-right">
-                      <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 text-emerald-400 rounded-full text-[9px] font-mono">
-                        {tx.status}
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-right font-mono text-[10px] text-slate-500">
-                      {tx.timestamp}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {transactions.slice(0, 6).map((tx) => {
+              // Create friendly text descriptions
+              let textDescription = '';
+              let valueLabel = '';
+              
+              if (tx.type === 'buy') {
+                textDescription = `You instantly bought ${tx.amount.toFixed(4)} ${tx.asset}`;
+                valueLabel = `Spent $${(tx.amount * (tx.price || 0)).toFixed(2)}`;
+              } else if (tx.type === 'sell') {
+                textDescription = `You instantly sold ${tx.amount.toFixed(4)} ${tx.asset}`;
+                valueLabel = `Received $${(tx.amount * (tx.price || 0)).toFixed(2)}`;
+              } else if (tx.type === 'deposit') {
+                textDescription = `You loaded Regular Money ($${tx.amount.toFixed(2)}) into your piggy bank`;
+                valueLabel = 'Added Cash';
+              } else if (tx.type === 'stake') {
+                textDescription = `You put ${tx.amount.toFixed(4)} ${tx.asset} to work to grow bonus rewards 🚀`;
+                valueLabel = 'Saving & Growing';
+              } else if (tx.type === 'unstake') {
+                textDescription = `You withdrew ${tx.amount.toFixed(4)} ${tx.asset} back to your wallet`;
+                valueLabel = 'Moved to Wallet';
+              } else if (tx.type === 'swap') {
+                textDescription = `You swapped ${tx.amount.toFixed(4)} ${tx.asset} directly for ${tx.targetAmount?.toFixed(4)} ${tx.targetAsset}`;
+                valueLabel = 'Direct Swap';
+              }
+
+              return (
+                <div key={tx.id} className="p-3 bg-slate-900/40 border border-slate-900 rounded-xl flex items-start gap-2.5 hover:border-slate-800 transition-colors">
+                  <div className="p-2 bg-slate-950 rounded-lg border border-slate-900 shrink-0">
+                    {tx.type === 'buy' && <ArrowUpRight className="w-4 h-4 text-emerald-400" />}
+                    {tx.type === 'sell' && <ArrowDownLeft className="w-4 h-4 text-red-400" />}
+                    {tx.type === 'deposit' && <PlusCircle className="w-4 h-4 text-blue-400" />}
+                    {tx.type === 'stake' && <Activity className="w-4 h-4 text-teal-400" />}
+                    {tx.type === 'unstake' && <ArrowDownLeft className="w-4 h-4 text-amber-400" />}
+                    {tx.type === 'swap' && <ArrowRight className="w-4 h-4 text-purple-400" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-sans font-semibold text-slate-100 leading-tight">
+                      {textDescription}
+                    </p>
+                    <div className="flex items-center justify-between mt-1 text-[10px] font-sans text-slate-400">
+                      <span>{tx.timestamp}</span>
+                      <span className="font-semibold text-cyan-400">{valueLabel}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -687,7 +720,7 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
               <div className="p-5 border-b border-slate-900 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-amber-400 animate-spin" style={{ animationDuration: '3s' }} />
-                  <h3 className="text-sm font-sans font-bold text-white tracking-wide">Micro-Asset Dust Sweeper Matrix</h3>
+                  <h3 className="text-sm font-sans font-bold text-white tracking-wide">🧹 Piggy Bank Spare Change Sweeper</h3>
                 </div>
                 <button
                   onClick={() => setShowDustModal(false)}
@@ -699,7 +732,7 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
 
               <div className="p-5 space-y-4">
                 <p className="text-xs text-slate-400 leading-relaxed font-sans">
-                  The sweeper scans your clearing sub-wallets for trailing, fractional balances under <span className="text-white font-mono">$1.00 valuation</span> and consolidates them into standard **NEX** (Nexus Utility Token) in a single decentralized atomic transaction.
+                  Got tiny bits of spare change left over from trades? This sweeper gathers all fractional coins worth less than <span className="text-white font-mono">$1.00 valuation</span> and swaps them into **NEX** coins (Nexus Rewards Tokens) with zero fees!
                 </p>
 
                 {sweepSuccess ? (
@@ -708,21 +741,21 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
                       <Check className="w-6 h-6 text-emerald-400" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-sans font-bold text-white uppercase tracking-wider">Atomic Consolidation Succeeded</h4>
-                      <p className="text-[11px] font-mono text-slate-500 mt-1">Minted +{nexOutputAmount.toFixed(4)} NEX tokens into your primary wallet.</p>
+                      <h4 className="text-xs font-sans font-bold text-white uppercase tracking-wider">All Change Swept! 🎉</h4>
+                      <p className="text-[11px] font-sans text-slate-400 mt-1">Gained +{nexOutputAmount.toFixed(4)} NEX tokens into your primary rewards piggy bank.</p>
                     </div>
                   </div>
                 ) : isSweeping ? (
                   <div className="py-10 text-center space-y-4">
                     <RefreshCw className="w-8 h-8 text-amber-400 animate-spin mx-auto" />
                     <div>
-                      <p className="text-xs font-mono text-slate-300">Sweeping {selectedDustSymbols.length} fractional assets...</p>
-                      <p className="text-[10px] font-mono text-slate-500 mt-1">Executing gasless AMM aggregation on Nexus Router</p>
+                      <p className="text-xs font-sans text-slate-300">Sweeping {selectedDustSymbols.length} tiny coins into rewards...</p>
+                      <p className="text-[10px] font-sans text-slate-500 mt-1">Combining balances safely with zero blockchain delivery fees...</p>
                     </div>
                   </div>
                 ) : dustAssets.length === 0 ? (
-                  <div className="py-6 text-center text-slate-500 text-xs font-mono">
-                    No trailing dust balances detected inside this account.
+                  <div className="py-6 text-center text-slate-400 text-xs font-sans">
+                    No tiny spare change balances found right now!
                   </div>
                 ) : (
                   <>
@@ -745,26 +778,26 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
                               )}
                               <div className="flex flex-col">
                                 <span className="text-xs font-sans font-bold text-white tracking-wider">{asset.symbol}</span>
-                                <span className="text-[9px] font-mono text-slate-500">{asset.name}</span>
+                                <span className="text-[9px] font-sans text-slate-400">{asset.name}</span>
                               </div>
                             </div>
 
-                            <div className="text-right flex flex-col font-mono text-[11px]">
-                              <span className="text-slate-300">{asset.balance.toFixed(6)}</span>
-                              <span className="text-[9px] text-slate-500">${val.toFixed(4)} USD</span>
+                            <div className="text-right flex flex-col font-sans text-[11px]">
+                              <span className="text-slate-300 font-mono">{asset.balance.toFixed(4)}</span>
+                              <span className="text-[9px] text-slate-500">${val.toFixed(2)} Regular Money</span>
                             </div>
                           </div>
                         );
                       })}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 p-3 bg-slate-950/60 border border-slate-900 rounded-xl text-xs font-mono">
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-slate-950/60 border border-slate-900 rounded-xl text-xs font-sans">
                       <div>
                         <span className="text-slate-500 uppercase text-[9px]">Total Value Swept</span>
-                        <p className="text-sm font-bold text-white mt-0.5">${totalDustValue.toFixed(4)} USD</p>
+                        <p className="text-sm font-bold text-white mt-0.5">${totalDustValue.toFixed(2)} Regular Money</p>
                       </div>
                       <div>
-                        <span className="text-slate-500 uppercase text-[9px]">Estimated NEX Output</span>
+                        <span className="text-slate-500 uppercase text-[9px]">My Reward NEX Output</span>
                         <p className="text-sm font-bold text-amber-400 mt-0.5">+{nexOutputAmount.toFixed(4)} NEX</p>
                       </div>
                     </div>
@@ -773,7 +806,9 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
                       <Info className="w-4 h-4 shrink-0 mt-0.5" />
                       <div>
                         <span className="font-bold">Zero-Fee Liquidation SLA</span>
-                        <p className="mt-0.5 font-mono text-[9px] text-amber-400/80">Decentralized dust sweepers are fully subsidized by Nexus protocol treasuries. Zero slippage or gas commissions will be levied on this trade.</p>
+                        <p className="mt-0.5 font-sans text-[9px] text-amber-400/80">
+                          This is 100% free! Zero slippage or delivery fee is taken on spare change consolidations.
+                        </p>
                       </div>
                     </div>
 
@@ -783,7 +818,7 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
                       className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-slate-950 font-sans font-bold text-xs rounded-xl transition tracking-wide cursor-pointer flex items-center justify-center gap-1.5"
                     >
                       <Sparkles className="w-4 h-4 text-slate-950" />
-                      SWEEP {selectedDustSymbols.length} ASSETS TO NEXUS (NEX)
+                      SWEEP {selectedDustSymbols.length} SPARE COINS TO NEXUS (NEX)
                     </button>
                   </>
                 )}

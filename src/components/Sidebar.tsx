@@ -25,12 +25,12 @@ interface SidebarProps {
 
 export default function Sidebar({ activeTab, setActiveTab, user, onSignOut, usdBalance }: SidebarProps) {
   const menuItems = [
-    { id: 'dashboard', label: 'Terminal Dashboard', icon: LayoutDashboard },
-    { id: 'trade', label: 'Advanced Trade Desk', icon: ArrowLeftRight },
-    { id: 'earn', label: 'Staking & Yields', icon: TrendingUp },
-    { id: 'social', label: 'Sovereign Social', icon: Users },
-    { id: 'security', label: 'KYC & 2FA Security', icon: Fingerprint },
-    { id: 'developer', label: 'Developer Gateway', icon: Code },
+    { id: 'dashboard', label: 'My Home Dashboard', icon: LayoutDashboard },
+    { id: 'trade', label: 'Buy, Sell & Swap Center', icon: ArrowLeftRight },
+    { id: 'earn', label: 'Rewards Center', icon: TrendingUp },
+    { id: 'social', label: 'Community & Friends', icon: Users },
+    { id: 'security', label: 'Identity & Security Check', icon: Fingerprint },
+    { id: 'developer', label: 'Developer Tools', icon: Code },
   ];
 
   return (
@@ -49,14 +49,14 @@ export default function Sidebar({ activeTab, setActiveTab, user, onSignOut, usdB
 
         {/* User Balance card */}
         <div className="p-4 bg-slate-900/40 border border-slate-900 rounded-2xl mb-6">
-          <p className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Estimated Balance</p>
+          <p className="text-[10px] font-sans text-slate-400 uppercase tracking-wider flex items-center gap-1">My Crypto Piggy Bank 🐷</p>
           <p className="text-xl font-sans font-bold text-white tracking-tight mt-1">
             ${usdBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           <div className="flex items-center gap-1.5 mt-2.5">
             <span className={`w-1.5 h-1.5 rounded-full ${user.kycStatus === 'verified' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-            <span className="text-[10px] font-mono text-slate-400">
-              {user.kycStatus === 'verified' ? 'Verified Account' : 'Limited Profile'}
+            <span className="text-[10px] font-sans text-slate-400">
+              {user.kycStatus === 'verified' ? 'Safe & Verified Account' : 'Limited Profile (Verify ID below)'}
             </span>
           </div>
         </div>
@@ -110,7 +110,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, onSignOut, usdB
           className="w-full flex items-center justify-center gap-2 py-2 text-xs font-mono text-slate-400 hover:text-red-400 hover:bg-red-950/20 rounded-xl transition-all duration-150 cursor-pointer border border-transparent hover:border-red-900/30"
         >
           <LogOut className="w-3.5 h-3.5" />
-          Terminate Session
+          Log Out / Safe Exit
         </button>
       </div>
     </aside>

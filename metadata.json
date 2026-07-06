@@ -1,6 +1,6 @@
 {
   "name": "Nexus Exchange",
-  "description": "An advanced institutional-grade crypto asset management, spot trading, yield staking, and sovereign copy-trading social terminal.",
+  "description": "An educational, highly visual, and beginner-friendly crypto exchange and algorithmic practice playground for novice learners.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

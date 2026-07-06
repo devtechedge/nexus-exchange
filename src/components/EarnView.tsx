@@ -28,7 +28,9 @@ import {
   RefreshCw,
   Clock,
   BookOpen,
-  DollarSign
+  DollarSign,
+  Smile,
+  Check
 } from 'lucide-react';
 import { Asset } from '../types';
 
@@ -52,18 +54,16 @@ const BASE_APY_RATES: { [key: string]: number } = {
   DOT: 11.40,
 };
 
-// 26. Artifact Definition
 interface Artifact {
   id: string;
   name: string;
   boost: number;
   description: string;
-  targetAsset: string; // 'GLOBAL' or specific symbol
+  targetAsset: string;
   equipped: boolean;
   tier: 'Epic' | 'Relic' | 'Cosmic';
 }
 
-// 28. Academy Course Quiz
 interface QuizQuestion {
   question: string;
   options: string[];
@@ -92,17 +92,17 @@ export default function EarnView({
   feeDiscount,
   setFeeDiscount
 }: EarnViewProps) {
-  // --- SUB-TABS STATE ---
+  // Main Sub-tabs with simple friendly labels
   const [activeTab, setActiveTab] = useState<'flexible' | 'optimizers' | 'lockers' | 'structured' | 'academy'>('flexible');
 
-  // Staking selection state
+  // Staking selection
   const [selectedSymbol, setSelectedSymbol] = useState('SOL');
-  const [stakeAmount, setStakeAmount] = useState('');
-  const [unstakeAmount, setUnstakeAmount] = useState('');
+  const [stakeAmount, setStakeAmount] = useState('1');
+  const [unstakeAmount, setUnstakeAmount] = useState('1');
   const [stakeAction, setStakeAction] = useState<'stake' | 'unstake'>('stake');
   const [stakingError, setStakingError] = useState('');
 
-  // --- 21. AUTO-COMPOUNDING STATE ---
+  // Auto-compounding boosters
   const [autoCompoundEnabled, setAutoCompoundEnabled] = useState<{ [key: string]: boolean }>({
     SOL: false,
     ETH: false,
@@ -110,21 +110,21 @@ export default function EarnView({
     DOT: false
   });
   const [compoundLogs, setCompoundLogs] = useState<string[]>([
-    'System initialized. Dual-consensus harvesting node active.',
-    'Ready to lock compounding allocations.'
+    'Growth nodes initialized. Let\'s make your crypto multiply!',
+    'Ready to supercharge compounding cycles.'
   ]);
 
-  // --- 22. LIQUID STAKING STATE (stAssets) ---
-  const [mintAmount, setMintAmount] = useState('');
-  const [mintAsset, setMintAsset] = useState('SOL'); // SOL or ETH
+  // Liquid Staking derivatives
+  const [mintAmount, setMintAmount] = useState('1');
+  const [mintAsset, setMintAsset] = useState('SOL');
   const [stBalances, setStBalances] = useState<{ [key: string]: number }>({
     stSOL: 0,
     stETH: 0
   });
 
-  // --- 24. DUAL INVESTMENT STATE ---
+  // Dual Investment
   const [dualSelectedProduct, setDualSelectedProduct] = useState<'SOL-LOW' | 'ETH-HIGH'>('SOL-LOW');
-  const [dualSubAmount, setDualSubAmount] = useState('');
+  const [dualSubAmount, setDualSubAmount] = useState('50');
   const [dualActiveSub, setDualActiveSub] = useState<{
     asset: string;
     type: 'low' | 'high';
@@ -135,9 +135,9 @@ export default function EarnView({
   } | null>(null);
   const [dualSimulationOutcome, setDualSimulationOutcome] = useState<string | null>(null);
 
-  // --- 25. MICRO-DCA ROUNDUPS ---
-  const [dcaEnabled, setDcaEnabled] = useState(false);
-  const [dcaMultiplier, setDcaMultiplier] = useState(1); // 1x, 2x, 5x
+  // Micro-DCA Spare Change Sweeper
+  const [dcaEnabled, setDcaEnabled] = useState(true);
+  const [dcaMultiplier, setDcaMultiplier] = useState(1);
   const [dcaTargetAsset, setDcaTargetAsset] = useState('SOL');
   const [accumulatedDcaUsdc, setAccumulatedDcaUsdc] = useState(12.45);
   const [simTransactions, setSimTransactions] = useState([
@@ -146,66 +146,66 @@ export default function EarnView({
     { id: 'tx-dca-3', merchant: 'Quantum Gas Depot', cost: 32.15, roundup: 0.85 }
   ]);
 
-  // --- 26. YIELD BOOSTING ARTIFACT LOCKERS ---
+  // Yield Boosting Artifact socket boosters
   const [artifacts, setArtifacts] = useState<Artifact[]>([
     { id: 'art-1', name: 'Sovereign Chronograph', boost: 1.25, description: 'Accelerates global validator clockspeed by +1.25% APY.', targetAsset: 'GLOBAL', equipped: false, tier: 'Epic' },
     { id: 'art-2', name: 'Prism Flare Core', boost: 2.10, description: 'Enhances Solana pipeline transactions by +2.10% SOL APY.', targetAsset: 'SOL', equipped: false, tier: 'Relic' },
     { id: 'art-3', name: 'Quantum Ledger Seal', boost: 2.85, description: 'Locks down DOT staking telemetry by +2.85% DOT APY.', targetAsset: 'DOT', equipped: false, tier: 'Cosmic' }
   ]);
 
-  // --- 27. CROSS-ASSET YIELD ROUTER ---
+  // Cross-Asset Yield Router
   const [routingInProcess, setRoutingInProcess] = useState(false);
   const [routeSteps, setRouteSteps] = useState<string[]>([]);
-  const [routerSelectedPool, setRouterSelectedPool] = useState('Lido'); // 'Lido' | 'Aave' | 'RocketPool'
+  const [routerSelectedPool, setRouterSelectedPool] = useState('Lido');
 
-  // --- 28. ACADEMY GRANTS PORTAL ---
+  // Crypto Academy Courses
   const [courses, setCourses] = useState<Course[]>([
     {
       id: 'course-1',
-      title: 'Layer-1 Consensus Paradigms',
-      description: 'Analyze Proof-of-Stake validator nodes, consensus finality epochs, and slashing game theory.',
+      title: 'How does earning rewards (Staking) work?',
+      description: 'Learn the super simple concept of locking coins to keep the crypto world safe, and getting bonus coins as a thank-you!',
       rewardNex: 15,
-      durationMin: 5,
+      durationMin: 3,
       completed: false,
       questions: [
         {
-          question: 'What is the primary role of a validator signature in Proof-of-Stake?',
-          options: ['To prove computer hardware capacity', 'To sign blocks and attest to valid ledger history', 'To solve SHA-256 cryptographic hashes'],
+          question: 'What is Staking in plain English?',
+          options: ['Lending your laptop to someone', 'Temporarily locking your digital coins to help keep the network safe', 'Playing computer games to mine blocks'],
           correctIdx: 1
         },
         {
-          question: 'What happens to a staked validator that signs two blocks in the same slot?',
-          options: ['They get rewarded extra block fees', 'They receive a "Slashing" penalty and lose staked capital', 'The validator is automatically converted to proof-of-work'],
+          question: 'Why do you get rewarded with free coins when you stake?',
+          options: ['Because you won a lottery', 'As a thank-you gift for helping run the network secure', 'Because of a glitch in the code'],
           correctIdx: 1
         },
         {
-          question: 'How is network finality typically defined?',
-          options: ['The total size of the downloaded blockchain', 'A guarantee that a transaction block cannot be altered or reverted', 'The speed at which transactions are typed'],
+          question: 'Can you unlock your coins back to your normal wallet?',
+          options: ['No, they are gone forever', 'Yes, you can request them back anytime', 'Only if you pay a huge cash fine'],
           correctIdx: 1
         }
       ]
     },
     {
       id: 'course-2',
-      title: 'Zero-Knowledge Privacy Architectures',
-      description: 'Deconstruct polynomial commitments over elliptic curves and non-interactive proof systems.',
+      title: 'What is "Auto-Compounding"?',
+      description: 'Learn how reinvesting your daily bonuses automatically makes your crypto pile grow way faster over time!',
       rewardNex: 25,
-      durationMin: 8,
+      durationMin: 4,
       completed: false,
       questions: [
         {
-          question: 'What does the "Non-Interactive" part of zk-SNARK stand for?',
-          options: ['The prover and verifier require zero real-time back-and-forth communication', 'The user cannot play computer games during proving', 'Validators do not use internet cables'],
+          question: 'What is the secret trick of Compound Interest?',
+          options: ['Earning bonuses on top of bonuses you already earned', 'Hiding your coins in an offshore bank', 'Waiting 10 years without looking'],
           correctIdx: 0
         },
         {
-          question: 'In Zero-Knowledge, what is the "prover" attempting to accomplish?',
-          options: ['Show proof of large mining servers', 'Prove a statement is true without revealing any actual data content', 'Steal funds from smart contracts'],
+          question: 'What does our "Auto-Compounding Booster" do for you?',
+          options: ['Locks you out of the platform', 'Harvests and reinvests your rewards automatically so you do zero work', 'Buys random meme coins for you'],
           correctIdx: 1
         },
         {
-          question: 'Why are elliptic curves useful in ZK systems?',
-          options: ['They are easy to draw with HTML5 tools', 'They provide mathematical structures for homomorphic hidden evaluation', 'They have high transaction block capacities'],
+          question: 'Why does compound growth start slow but end massive?',
+          options: ['Because of blockchain delivery speeds', 'Because it behaves like a snowball rolling down a hill, gaining size on every turn', 'Because it only works at night'],
           correctIdx: 1
         }
       ]
@@ -216,7 +216,7 @@ export default function EarnView({
   const [selectedQuizOption, setSelectedQuizOption] = useState<number | null>(null);
   const [quizScore, setQuizScore] = useState(0);
 
-  // --- 29. TAX-LOSS HARVESTING DIAGNOSTIC ---
+  // Tax Loss Harvesting
   const [underwaterPositions, setUnderwaterPositions] = useState([
     { id: 'pos-1', asset: 'DOT', buyPrice: 13.80, currentPrice: 9.12, amount: 80, lossUsd: -374.40 },
     { id: 'pos-2', asset: 'LINK', buyPrice: 18.50, currentPrice: 14.20, amount: 45, lossUsd: -193.50 }
@@ -224,7 +224,7 @@ export default function EarnView({
   const [taxHarvestLogs, setTaxHarvestLogs] = useState<string[]>([]);
   const [taxHarvestComplete, setTaxHarvestComplete] = useState(false);
 
-  // --- 30. DECAY-PROTECTED TIME-LOCK SAFES ---
+  // Decay-Protected Safes
   const [safes, setSafes] = useState<{
     id: string;
     asset: string;
@@ -236,10 +236,10 @@ export default function EarnView({
     { id: 'safe-1', asset: 'NEX', amount: 500, unlockDate: '2026-12-31', timeRemaining: '178 Days', status: 'locked' }
   ]);
   const [safeAsset, setSafeAsset] = useState('SOL');
-  const [safeAmount, setSafeAmount] = useState('');
+  const [safeAmount, setSafeAmount] = useState('2');
   const [safeMonths, setSafeMonths] = useState(3);
 
-  // --- REWARD ACCRUAL LEDGER ---
+  // REWARD ACCRUAL LEDGER
   const [accruedRewards, setAccruedRewards] = useState<{ [key: string]: number }>({
     SOL: 0.002841,
     ETH: 0.000724,
@@ -247,11 +247,10 @@ export default function EarnView({
     DOT: 0.185293,
   });
 
-  // Calculate dynamic APY rates incorporating Artifact Boosts & Auto-compounding
+  // Calculate APY rates
   const computedAPYRates = useMemo(() => {
     const rates = { ...BASE_APY_RATES };
     
-    // 1. Artifact global or asset-specific boosts
     artifacts.forEach(art => {
       if (art.equipped) {
         if (art.targetAsset === 'GLOBAL') {
@@ -264,10 +263,9 @@ export default function EarnView({
       }
     });
 
-    // 2. Auto-compounding boost
     Object.keys(rates).forEach(sym => {
       if (autoCompoundEnabled[sym]) {
-        rates[sym] += 1.50; // +1.50% APY boost for auto-compounding optimization
+        rates[sym] += 1.50; // +1.50% APY boost
       }
     });
 
@@ -276,7 +274,7 @@ export default function EarnView({
 
   const selectedAPY = computedAPYRates[selectedSymbol] || 0;
 
-  // Real-time ticking rewards logic
+  // Millisecond ticker simulation for Piggy Bank Ticker
   useEffect(() => {
     const interval = setInterval(() => {
       setAccruedRewards((prev) => {
@@ -284,7 +282,7 @@ export default function EarnView({
         Object.keys(computedAPYRates).forEach((symbol) => {
           const staked = stakedBalances[symbol] || 0;
           if (staked > 0) {
-            // APY per second = APY / 100 / (365 * 24 * 3600)
+            // dynamic reward accumulation ticker
             const rewardPerSecond = staked * (computedAPYRates[symbol] / 100) / (365 * 24 * 3600);
             const rewardIn100ms = rewardPerSecond * 0.1;
             next[symbol] = (next[symbol] || 0) + rewardIn100ms;
@@ -297,29 +295,38 @@ export default function EarnView({
     return () => clearInterval(interval);
   }, [stakedBalances, computedAPYRates]);
 
-  // Dynamic logs tick for Auto-compounding
+  // Combined rewards ticking value in USD
+  const totalAccruedUsd = useMemo(() => {
+    let totalUsd = 0;
+    Object.keys(accruedRewards).forEach(symbol => {
+      const asset = assets.find(a => a.symbol === symbol);
+      if (asset) {
+        totalUsd += accruedRewards[symbol] * asset.price;
+      }
+    });
+    return totalUsd;
+  }, [accruedRewards, assets]);
+
+  // Auto-compounding logs ticking simulation
   useEffect(() => {
     if (activeTab !== 'optimizers') return;
     const interval = setInterval(() => {
-      const symbolsWithCompounding = Object.keys(autoCompoundEnabled).filter(sym => autoCompoundEnabled[sym]);
-      if (symbolsWithCompounding.length > 0) {
-        const randomSym = symbolsWithCompounding[Math.floor(Math.random() * symbolsWithCompounding.length)];
-        const harvestAmt = (Math.random() * 0.0025 + 0.0001).toFixed(6);
+      const activeSymbols = Object.keys(autoCompoundEnabled).filter(sym => autoCompoundEnabled[sym]);
+      if (activeSymbols.length > 0) {
+        const randomSym = activeSymbols[Math.floor(Math.random() * activeSymbols.length)];
+        const bonusAmt = (Math.random() * 0.0003 + 0.00002).toFixed(6);
         setCompoundLogs(prev => [
-          `[${new Date().toLocaleTimeString()}] Dynamic peak hit. Harvesting ${randomSym} rewards and compounding back to main pool (+${harvestAmt} ${randomSym} added).`,
-          ...prev.slice(0, 6)
+          `[${new Date().toLocaleTimeString()}] Booster triggered! Automatically harvested ${randomSym} and reinvested (+${bonusAmt} ${randomSym} compound added).`,
+          ...prev.slice(0, 5)
         ]);
-        // Update reward balance slightly to simulate compounding deposit
         setStakedBalances(prev => ({
           ...prev,
-          [randomSym]: prev[randomSym] + parseFloat(harvestAmt)
+          [randomSym]: prev[randomSym] + parseFloat(bonusAmt)
         }));
       }
-    }, 12000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [autoCompoundEnabled, activeTab]);
-
-  // --- ACTIONS ---
 
   const handleStakeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -328,35 +335,35 @@ export default function EarnView({
     if (stakeAction === 'stake') {
       const amt = parseFloat(stakeAmount);
       if (isNaN(amt) || amt <= 0) {
-        setStakingError('Please enter a valid amount');
+        setStakingError('Write a valid number of coins to grow.');
         return;
       }
 
       const available = balances[selectedSymbol] || 0;
       if (amt > available) {
-        setStakingError(`Insufficient available balance. You have ${available.toFixed(4)} ${selectedSymbol}`);
+        setStakingError(`Oops! You only have ${available.toFixed(4)} ${selectedSymbol} in your active wallet.`);
         return;
       }
 
       onStake(selectedSymbol, amt);
-      setStakeAmount('');
-      onNotification('success', `Deposited ${amt.toFixed(4)} ${selectedSymbol} into decentralized staking pool.`);
+      setStakeAmount('1');
+      onNotification('success', `Deposited ${amt.toFixed(4)} ${selectedSymbol} into your growing Piggy Bank! APY is now active.`);
     } else {
       const amt = parseFloat(unstakeAmount);
       if (isNaN(amt) || amt <= 0) {
-        setStakingError('Please enter a valid amount');
+        setStakingError('Write a valid number of coins to reclaim.');
         return;
       }
 
       const staked = stakedBalances[selectedSymbol] || 0;
       if (amt > staked) {
-        setStakingError(`Insufficient staked balance. You only have ${staked.toFixed(4)} ${selectedSymbol} staked`);
+        setStakingError(`Oops! You only have ${staked.toFixed(4)} ${selectedSymbol} growing inside the Piggy Bank.`);
         return;
       }
 
       onUnstake(selectedSymbol, amt);
-      setUnstakeAmount('');
-      onNotification('info', `Withdrew ${amt.toFixed(4)} ${selectedSymbol} from pool back to spot wallet.`);
+      setUnstakeAmount('1');
+      onNotification('info', `Successfully moved ${amt.toFixed(4)} ${selectedSymbol} back into your normal active wallet.`);
     }
   };
 
@@ -370,49 +377,45 @@ export default function EarnView({
     }
   };
 
-  // --- 21. Toggle Compound State ---
   const toggleAutoCompound = (sym: string) => {
     setAutoCompoundEnabled(prev => {
       const isActivating = !prev[sym];
       if (isActivating) {
-        onNotification('success', `Smart Auto-Compounding activated on ${sym} Vault. Reinvesting peak-yield cycles dynamically.`);
-        setCompoundLogs(l => [`[${new Date().toLocaleTimeString()}] Automated Smart-Harvesting online for ${sym} (Epoch boost applied +1.50% APY).`, ...l]);
+        onNotification('success', `Smart Auto-Compounding activated on ${sym} Piggy Bank!`);
+        setCompoundLogs(l => [`[${new Date().toLocaleTimeString()}] Auto-Reinvestment active on ${sym} (+1.50% APY booster applied!).`, ...l]);
       } else {
-        onNotification('info', `Deactivated auto-compounding on ${sym}. Harvest returns now accumulate in standard ledger.`);
+        onNotification('info', `Turned off auto-compounding on ${sym}.`);
       }
       return { ...prev, [sym]: isActivating };
     });
   };
 
-  // --- 22. Liquid Staking Tokenization Derivatives (stSOL, stETH) ---
   const handleMintstAsset = () => {
     const amt = parseFloat(mintAmount);
     if (isNaN(amt) || amt <= 0) {
-      onNotification('error', 'Enter a valid amount to mint stAsset.');
+      onNotification('error', 'Enter a valid amount to mint.');
       return;
     }
 
     const staked = stakedBalances[mintAsset] || 0;
     if (amt > staked) {
-      onNotification('error', `Insufficient staked ${mintAsset}. You need active staking to mint synthetic representations.`);
+      onNotification('error', `You don't have enough staked ${mintAsset} to mint a tradeable helper asset.`);
       return;
     }
 
-    // Deduct from staked, mint stAsset
     setStakedBalances(prev => ({ ...prev, [mintAsset]: prev[mintAsset] - amt }));
     const syntheticName = `st${mintAsset}`;
     setStBalances(prev => ({ ...prev, [syntheticName]: (prev[syntheticName] || 0) + amt }));
-    // Also add to spot balances so they can trade it!
     setBalances(prev => ({ ...prev, [syntheticName]: (prev[syntheticName] || 0) + amt }));
 
-    setMintAmount('');
-    onNotification('success', `Successfully minted ${amt.toFixed(4)} ${syntheticName} derivative! Base staking rewards continue compounding.`);
+    setMintAmount('1');
+    onNotification('success', `Created ${amt.toFixed(4)} ${syntheticName} Tradeable Helper! Your staking growth rewards continue safely.`);
   };
 
   const handleBurnstAsset = (stAsset: string) => {
     const amt = stBalances[stAsset] || 0;
     if (amt <= 0) {
-      onNotification('error', `No active ${stAsset} derivative to redeem.`);
+      onNotification('error', `You don't own any tradeable ${stAsset}.`);
       return;
     }
 
@@ -421,25 +424,21 @@ export default function EarnView({
     setBalances(prev => ({ ...prev, [stAsset]: 0 }));
     setStakedBalances(prev => ({ ...prev, [baseAsset]: (prev[baseAsset] || 0) + amt }));
     
-    onNotification('info', `Redeemed ${amt.toFixed(4)} ${stAsset}! Restored back into sovereign core staking pool.`);
+    onNotification('info', `Redeemed ${amt.toFixed(4)} ${stAsset} helper! Coins returned to main growing pool.`);
   };
 
-  // --- 23. Vault Lock Tiers with Fee Rebates ---
   const handleLockVault = (tierId: string, durationDays: number, rebatePercent: number) => {
     const amountToLock = tierId === 'bronze' ? 100 : tierId === 'silver' ? 500 : 2000;
     const nexBalance = balances['NEX'] || 0;
 
     if (nexBalance < amountToLock) {
-      onNotification('error', `Insufficient NEX balance to subscribe. Requires ${amountToLock} NEX. Your balance: ${nexBalance.toFixed(2)} NEX.`);
+      onNotification('error', `Oops! You need ${amountToLock} NEX tokens. You currently have ${nexBalance.toFixed(2)} NEX.`);
       return;
     }
 
-    // Deduct NEX
     setBalances(prev => ({ ...prev, NEX: prev['NEX'] - amountToLock }));
-    // Update permanent fee discount state
     setFeeDiscount(rebatePercent);
 
-    // Add safe/lock
     const newSafe = {
       id: `lock-${Math.random().toString(36).substr(2, 5)}`,
       asset: 'NEX',
@@ -450,14 +449,13 @@ export default function EarnView({
     };
     setSafes(prev => [...prev, newSafe]);
 
-    onNotification('success', `Unlocked ${rebatePercent}% global fee reduction rebate! Staked ${amountToLock} NEX inside dynamic locking vault.`);
+    onNotification('success', `Locked! Activated a permanent ${rebatePercent}% discount on platform fee buffers!`);
   };
 
-  // --- 24. Volatility-Hedging Dual Investment Vehicles ---
   const handleSubscribeDual = () => {
     const amt = parseFloat(dualSubAmount);
     if (isNaN(amt) || amt <= 0) {
-      onNotification('error', 'Please enter a valid subscription capital amount.');
+      onNotification('error', 'Please write a valid amount to invest.');
       return;
     }
 
@@ -465,14 +463,12 @@ export default function EarnView({
     const fundingBalance = balances[fundingAsset] || 0;
 
     if (amt > fundingBalance) {
-      onNotification('error', `Insufficient ${fundingAsset} balance to lock dual investment.`);
+      onNotification('error', `You don't have enough ${fundingAsset} in your active wallet.`);
       return;
     }
 
-    // Deduct
     setBalances(prev => ({ ...prev, [fundingAsset]: prev[fundingAsset] - amt }));
 
-    // Create active subscription
     if (dualSelectedProduct === 'SOL-LOW') {
       setDualActiveSub({
         asset: 'SOL',
@@ -493,61 +489,57 @@ export default function EarnView({
       });
     }
 
-    setDualSubAmount('');
+    setDualSubAmount('50');
     setDualSimulationOutcome(null);
-    onNotification('success', `Dual investment contract locked. Settling at expiration based on strike boundaries.`);
+    onNotification('success', `Position locked. Contract will settle depending on expiry thresholds!`);
   };
 
   const handleSimulateDualExpiry = (forceOutcome: 'STRIKE_HIT' | 'STRIKE_MISSED') => {
     if (!dualActiveSub) return;
 
     const principal = dualActiveSub.amount;
-    const interest = principal * (dualActiveSub.apy / 100) * (3 / 365); // 3-day short-duration APY
+    const interest = principal * (dualActiveSub.apy / 100) * (3 / 365);
     const totalPayoutUsdc = principal + interest;
 
     if (dualActiveSub.type === 'low') {
-      // SOL Buy Low - if strike hit, payouts converted to SOL. Else USDC.
       if (forceOutcome === 'STRIKE_HIT') {
         const solQty = totalPayoutUsdc / dualActiveSub.strikePrice;
         setBalances(prev => ({ ...prev, SOL: (prev['SOL'] || 0) + solQty }));
-        setDualSimulationOutcome(`SOL Price at expiry settled BELOW strike ($132.40). Purchase triggered. Received ${solQty.toFixed(4)} SOL (USDC principal + ${dualActiveSub.apy}% APY compound converted).`);
+        setDualSimulationOutcome(`Settle result: SOL Price hit your trigger. Converted your USDC into ${solQty.toFixed(4)} SOL with a high APY bonus!`);
       } else {
         setBalances(prev => ({ ...prev, USDC: (prev['USDC'] || 0) + totalPayoutUsdc }));
-        setDualSimulationOutcome(`SOL Price at expiry settled ABOVE strike ($141.20). No purchase triggered. Returned principal + high-yield compounding payout of $${totalPayoutUsdc.toFixed(2)} USDC.`);
+        setDualSimulationOutcome(`Settle result: SOL stayed above target. Returned your USDC principal + bonus rewards totaling $${totalPayoutUsdc.toFixed(2)} USDC!`);
       }
     } else {
-      // ETH Sell High - if strike hit, payouts converted to USDC. Else ETH.
       if (forceOutcome === 'STRIKE_HIT') {
         const ethQty = principal * (1 + (dualActiveSub.apy / 100) * (3 / 365));
         const payoutUsdc = ethQty * dualActiveSub.strikePrice;
         setBalances(prev => ({ ...prev, USDC: (prev['USDC'] || 0) + payoutUsdc }));
-        setDualSimulationOutcome(`ETH Price at expiry settled ABOVE strike ($3550.00). Portfolio auto-sold. Received $${payoutUsdc.toFixed(2)} USDC (Principal ETH converted at Strike + High APY).`);
+        setDualSimulationOutcome(`Settle result: ETH shot up past strike. Auto-sold your ETH into $${payoutUsdc.toFixed(2)} USDC with top-tier profit APY!`);
       } else {
         const totalEthPayout = principal * (1 + (dualActiveSub.apy / 100) * (3 / 365));
         setBalances(prev => ({ ...prev, ETH: (prev['ETH'] || 0) + totalEthPayout }));
-        setDualSimulationOutcome(`ETH Price at expiry settled BELOW strike ($3380.00). Hold maintained. Returned your principal + yield payout of ${totalEthPayout.toFixed(5)} ETH.`);
+        setDualSimulationOutcome(`Settle result: ETH stayed low. You keep your ETH coins plus high-yield bonus payout of ${totalEthPayout.toFixed(5)} ETH!`);
       }
     }
 
     setDualActiveSub(null);
-    onNotification('success', 'Structured investment cleared. Assets distributed.');
+    onNotification('success', 'Position cleared and assets paid back!');
   };
 
-  // --- 25. Micro-DCA Fiat Round-Ups Dashboard ---
   const triggerSimulatedCardSpend = () => {
-    const merchants = ['Starbucks Grind', 'Node Cloud Host', 'Retro Synthesizers', 'Steam Games', 'Tesla Charging'];
-    const chosenMerchant = merchants[Math.floor(Math.random() * merchants.length)];
-    const cost = parseFloat((Math.random() * 20 + 2).toFixed(2));
-    const nextDollar = Math.ceil(cost);
-    const roundup = parseFloat((nextDollar - cost).toFixed(2));
+    const merchants = ['Starbucks Coffee', 'Retro Cinema', 'Steam Games', 'Tesla Charger', 'Cyber Diner'];
+    const merchant = merchants[Math.floor(Math.random() * merchants.length)];
+    const cost = parseFloat((Math.random() * 15 + 2).toFixed(2));
+    const nextWhole = Math.ceil(cost);
+    const roundup = parseFloat((nextWhole - cost).toFixed(2));
     const finalRoundup = roundup === 0 ? 1.00 : roundup;
 
     const addition = finalRoundup * dcaMultiplier;
 
-    // Deduct USDC from wallet, save it into the DCA fund
     const currentUsdc = balances['USDC'] || 0;
     if (currentUsdc < addition) {
-      onNotification('error', 'DCA Round-up failed: Insufficient USDC balance.');
+      onNotification('error', 'Spare Change collection failed: You need more USDC cash in wallet.');
       return;
     }
 
@@ -556,44 +548,38 @@ export default function EarnView({
 
     const newTx = {
       id: `tx-dca-${Math.floor(Math.random() * 10000)}`,
-      merchant: chosenMerchant,
+      merchant,
       cost,
       roundup: finalRoundup
     };
 
-    setSimTransactions(prev => [newTx, ...prev.slice(0, 4)]);
-    onNotification('success', `Virtual debit swipe simulated at ${chosenMerchant}! Rounded up $${finalRoundup.toFixed(2)} x ${dcaMultiplier} to DCA.`);
+    setSimTransactions(prev => [newTx, ...prev.slice(0, 3)]);
+    onNotification('success', `DCA Rounded up! Collected $${finalRoundup.toFixed(2)} from your $${cost.toFixed(2)} spend at ${merchant}!`);
   };
 
   const executeDcaPurchase = () => {
-    if (accumulatedDcaUsdc <= 0) {
-      onNotification('error', 'No accumulated savings to DCA purchase.');
-      return;
-    }
-
+    if (accumulatedDcaUsdc <= 0) return;
     const currentSaved = accumulatedDcaUsdc;
-    // Spot rate simulation
     const rate = dcaTargetAsset === 'SOL' ? 145.25 : dcaTargetAsset === 'NEX' ? 2.50 : 3240.00;
-    const boughtAmount = currentSaved / rate;
+    const bought = currentSaved / rate;
 
     setBalances(prev => ({
       ...prev,
-      [dcaTargetAsset]: (prev[dcaTargetAsset] || 0) + boughtAmount
+      [dcaTargetAsset]: (prev[dcaTargetAsset] || 0) + bought
     }));
 
     setAccumulatedDcaUsdc(0);
-    onNotification('success', `Automated DCA executed! Rounded-up $${currentSaved.toFixed(2)} converted to ${boughtAmount.toFixed(4)} ${dcaTargetAsset}.`);
+    onNotification('success', `Executed! Converted your accumulated $${currentSaved.toFixed(2)} spare change into ${bought.toFixed(4)} ${dcaTargetAsset}!`);
   };
 
-  // --- 26. Artifact Locker Boosters ---
   const toggleArtifact = (artId: string) => {
     setArtifacts(prev => prev.map(art => {
       if (art.id === artId) {
         const nextState = !art.equipped;
         if (nextState) {
-          onNotification('success', `Equipped ${art.name}! Boosting yield APY by +${art.boost}% on matching validator slots.`);
+          onNotification('success', `Socketed ${art.name}! Growth APY speed boosted by +${art.boost}%!`);
         } else {
-          onNotification('info', `Unequipped ${art.name}. Staking reverted to baseline APY rates.`);
+          onNotification('info', `Removed ${art.name} from booster slot.`);
         }
         return { ...art, equipped: nextState };
       }
@@ -601,17 +587,15 @@ export default function EarnView({
     }));
   };
 
-  // --- 27. Cross-Asset Yield Router ---
   const handleCrossAssetRoute = () => {
     setRoutingInProcess(true);
     setRouteSteps([]);
 
     const steps = [
-      `Initiating secure cross-protocol bridge check for ${selectedSymbol}...`,
-      `Scanning optimal liquidity path from ${routerSelectedPool} to Nexus Smart Optimizers...`,
-      `Liquidating fractional yield-lockers at ${routerSelectedPool}...`,
-      `Re-routing capital reserves through gas-optimized aggregators...`,
-      `Depositing and initializing compounding pools on Nexus (boosting yields up to ${computedAPYRates[selectedSymbol].toFixed(2)}% APY).`
+      `Scanning other decentralized staking networks for optimal rewards...`,
+      `Liquidating old, slow rewards elsewhere to merge into Nexus...`,
+      `Bridging and routing assets via gas-optimized shortcuts...`,
+      `Locked into Nexus smart compounding vault! Boosted your yield APY safely.`
     ];
 
     steps.forEach((step, index) => {
@@ -619,15 +603,13 @@ export default function EarnView({
         setRouteSteps(prev => [...prev, step]);
         if (index === steps.length - 1) {
           setRoutingInProcess(false);
-          onNotification('success', `Sovereign liquidity re-routed! Assets now enjoy maximized compounding multipliers.`);
-          // Auto compound enabled on that asset as result
+          onNotification('success', `Re-routing done! Coins migrated to Nexus for maximized compounding returns.`);
           setAutoCompoundEnabled(prev => ({ ...prev, [selectedSymbol]: true }));
         }
       }, (index + 1) * 800);
     });
   };
 
-  // --- 28. Proof-of-Learn Knowledge Micro-Grants Portal ---
   const handleStartCourse = (courseId: string) => {
     setActiveCourseId(courseId);
     setCurrentQuestionIdx(0);
@@ -654,78 +636,67 @@ export default function EarnView({
       setCurrentQuestionIdx(idx => idx + 1);
       setSelectedQuizOption(null);
     } else {
-      // Quiz complete!
       const finalScore = quizScore + (isCorrect ? 1 : 0);
       const passed = finalScore === course.questions.length;
 
       if (passed) {
-        // Payout micro-grant in NEX
         setBalances(prev => ({ ...prev, NEX: (prev['NEX'] || 0) + course.rewardNex }));
         setCourses(prev => prev.map(c => c.id === course.id ? { ...c, completed: true } : c));
-        onNotification('success', `Passed Course! Received Proof-of-Learn Micro-Grant of ${course.rewardNex} NEX.`);
+        onNotification('success', `Perfect Score! You passed! Grab your learn-and-earn grant of ${course.rewardNex} NEX! 🎉`);
       } else {
-        onNotification('error', `Score: ${finalScore}/${course.questions.length}. Proof of knowledge rejected. Please review blockchain architecture and try again!`);
+        onNotification('error', `You got ${finalScore}/${course.questions.length} correct. Take a quick review and try again, you can do it!`);
       }
       setActiveCourseId(null);
     }
   };
 
-  // --- 29. Tax-Loss Harvesting Diagnostic Panel ---
   const handleExecuteTaxHarvest = () => {
-    if (underwaterPositions.length === 0) {
-      onNotification('error', 'No underwater positions identified in current portfolio diagnostics.');
-      return;
-    }
-
+    if (underwaterPositions.length === 0) return;
     setTaxHarvestLogs([]);
     setTaxHarvestComplete(false);
 
     const steps = [
-      'Scanning portfolio positions for crystallizable capital losses...',
-      'Identified underperforming spot ledger assets (DOT, LINK).',
-      'Closing out position offsets at current market thresholds to crystallize $567.90 short-term losses...',
-      'Tax-Loss offsets locked. Instantly re-deploying liquid cash into staking equivalent Nexus stAssets...',
-      'Staking exposure maintained 100% while capturing $567.90 capital loss offset against annual liabilities!'
+      'Scanning for underperforming coin positions to swap out...',
+      'Identified eligible positions (DOT, LINK) sitting on paper losses.',
+      'Crystallizing $567.90 of capital tax savings with one click...',
+      'Proceeds instantly re-deployed back into corresponding stAssets so you keep 100% market exposure!',
+      'Tax savings locked! Your capital gain liability reduced by $567.90 while you hold the position.'
     ];
 
     steps.forEach((step, index) => {
       setTimeout(() => {
         setTaxHarvestLogs(prev => [...prev, step]);
         if (index === steps.length - 1) {
-          // Add stAssets corresponding to liquidated spot
           setBalances(prev => ({
             ...prev,
-            stSOL: (prev['stSOL'] || 0) + 12, // reinvested safely
+            stSOL: (prev['stSOL'] || 0) + 12,
             USDC: (prev['USDC'] || 0) + 1200
           }));
           setUnderwaterPositions([]);
           setTaxHarvestComplete(true);
-          onNotification('success', 'Tax Loss Harvesting complete! Capital loss registered and proceeds re-staked.');
+          onNotification('success', 'Tax Savings Harvester done! Loss registered and stAssets re-staked.');
         }
       }, (index + 1) * 700);
     });
   };
 
-  // --- 30. Decay-Protected Crypto Time-Lock Safes ---
   const handleLockSafeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amt = parseFloat(safeAmount);
 
     if (isNaN(amt) || amt <= 0) {
-      onNotification('error', 'Please enter a valid amount to lock down.');
+      onNotification('error', 'Enter a valid number of coins to lock.');
       return;
     }
 
     const available = balances[safeAsset] || 0;
     if (amt > available) {
-      onNotification('error', `Insufficient spot balance. You only have ${available.toFixed(4)} ${safeAsset}.`);
+      onNotification('error', `Oops! You only have ${available.toFixed(4)} ${safeAsset} in your active wallet.`);
       return;
     }
 
-    // Deduct from spot
     setBalances(prev => ({ ...prev, [safeAsset]: prev[safeAsset] - amt }));
 
-    // Create safe
     const targetDate = new Date();
     targetDate.setMonth(targetDate.getMonth() + safeMonths);
     const dateStr = targetDate.toISOString().split('T')[0];
@@ -740,8 +711,8 @@ export default function EarnView({
     };
 
     setSafes(prev => [newSafe, ...prev]);
-    setSafeAmount('');
-    onNotification('success', `Funds physically isolated! Stored ${amt} ${safeAsset} in decentralized Safe locked until ${dateStr}.`);
+    setSafeAmount('1');
+    onNotification('success', `Coins locked away securely in decentralized Time-Lock Safe! They will return on ${dateStr}.`);
   };
 
   const handleUnlockSafe = (safeId: string) => {
@@ -749,17 +720,15 @@ export default function EarnView({
     if (!safe) return;
 
     if (safe.status === 'locked') {
-      onNotification('error', `Decay Protection Active! Safe is physically locked until ${safe.unlockDate}. Unlocking before that date is prohibited by smart contract rules.`);
+      onNotification('error', `⚠️ Decay Protection Active! Safe is physically locked until ${safe.unlockDate} to help you avoid emotional panic-selling.`);
       return;
     }
 
-    // Restore to spot
     setBalances(prev => ({ ...prev, [safe.asset]: (prev[safe.asset] || 0) + safe.amount }));
     setSafes(prev => prev.filter(s => s.id !== safeId));
     onNotification('success', `Unlocked safe! Restored ${safe.amount} ${safe.asset} to spot wallet.`);
   };
 
-  // Helper valuation math
   const totalStakedValuation = useMemo(() => {
     let sum = 0;
     Object.keys(stakedBalances).forEach((symbol) => {
@@ -772,108 +741,107 @@ export default function EarnView({
   }, [stakedBalances, assets]);
 
   const activeRebateTier = useMemo(() => {
-    if (feeDiscount >= 60) return 'Gold Vault Master (-60% Fees)';
-    if (feeDiscount >= 35) return 'Silver Vault Guardian (-35% Fees)';
-    if (feeDiscount >= 15) return 'Bronze Locker Advocate (-15% Fees)';
+    if (feeDiscount >= 60) return '🏅 Gold Vault Master (-60% Fees)';
+    if (feeDiscount >= 35) return '🥈 Silver Vault Guardian (-35% Fees)';
+    if (feeDiscount >= 15) return '🥉 Bronze Locker Advocate (-15% Fees)';
     return 'Standard Level (0% Discount)';
   }, [feeDiscount]);
 
   return (
     <div className="space-y-6">
       
-      {/* HEADER SECTION WITH KEY ACCRUAL METRICS */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/40 border border-slate-900/60 p-6 rounded-2xl backdrop-blur-md">
-        <div>
-          <h2 className="text-xl font-bold font-sans tracking-tight text-white flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-emerald-400 animate-pulse" />
-            Game-Theoretic Asset Growth & Yield Mechanization
+      {/* MONSTER LIVE PIGGY BANK TICKER BANNER */}
+      <div className="p-6 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/20 border border-slate-900 rounded-3xl relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+          <Smile className="w-64 h-64 text-emerald-400" />
+        </div>
+
+        <div className="space-y-3 relative z-10 text-center md:text-left">
+          <div className="inline-flex items-center gap-2 bg-emerald-950/80 border border-emerald-900/50 px-3.5 py-1.5 rounded-full">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+            <span className="text-xs font-sans font-bold text-emerald-400">My Growing Piggy Bank Live 🐷</span>
+          </div>
+          <h2 className="text-2xl font-sans font-extrabold text-white tracking-tight">
+            Earn Free Bonus Coins While You Hold!
           </h2>
-          <p className="text-xs font-sans text-slate-400 mt-1">
-            Leverage peak auto-compounding algorithms, liquid synthetic derivatives, gamified booster artifacts, and structured options hedging desks.
+          <p className="text-xs text-slate-300 font-sans max-w-xl leading-relaxed">
+            Staking is like a digital savings account for crypto. Lock your coins to support the network, and watch your balance grow automatically every single second!
           </p>
         </div>
 
-        {/* SUB-TABS NAVIGATION CONTROLLERS */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-950/60 border border-slate-900 rounded-xl">
-          {[
-            { id: 'flexible', label: 'Core Staking & LSD', icon: Coins },
-            { id: 'optimizers', label: 'Yield Optimizers', icon: Zap },
-            { id: 'lockers', label: 'Locks & Safes', icon: Lock },
-            { id: 'structured', label: 'Structured duals & Tax', icon: Layers },
-            { id: 'academy', label: 'Academy & DCA', icon: GraduationCap }
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                id={`earn-tab-${tab.id}`}
-                key={tab.id}
-                onClick={() => { setActiveTab(tab.id as any); setStakingError(''); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans font-medium transition cursor-pointer ${
-                  isActive 
-                    ? 'bg-slate-900 text-emerald-400 shadow-md border border-slate-800' 
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {tab.label}
-              </button>
-            );
-          })}
+        {/* Live Millisecond Ticker Card */}
+        <div className="p-6 bg-slate-950/80 border border-slate-850 rounded-2xl text-center min-w-[260px] relative z-10 shadow-lg flex flex-col items-center">
+          <span className="text-[10px] font-sans text-slate-400 uppercase tracking-wider font-bold">Accumulated Growth Rewards</span>
+          <div className="text-2xl font-mono font-bold text-emerald-400 my-2 tracking-wide flex items-center justify-center gap-1.5">
+            <Sparkles className="w-5 h-5 text-emerald-400 shrink-0 animate-bounce" />
+            <span>${totalAccruedUsd.toFixed(6)}</span>
+          </div>
+          <span className="text-[9px] font-sans text-slate-500 animate-pulse font-medium">Ticking up live by the millisecond...</span>
         </div>
       </div>
 
-      {/* STATS OVERVIEW CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="p-4 bg-slate-950/40 border border-slate-900 rounded-xl">
-          <span className="text-[9px] font-mono text-slate-500 uppercase block">Total Active Stake</span>
-          <span className="text-lg font-bold text-white font-mono mt-1 block">
+      {/* BIG ACCESSIBLE TAB SWITCHERS */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-950/40 border border-slate-900 rounded-2xl">
+        {[
+          { id: 'flexible', label: '🌱 Grow My Coins (Staking)', icon: Coins },
+          { id: 'optimizers', label: '🚀 Auto-Compounding Boosters', icon: Zap },
+          { id: 'lockers', label: '🔒 Time-Locked Piggy Banks', icon: Lock },
+          { id: 'structured', label: '⚖️ Tax Savings & Dual Contracts', icon: Layers },
+          { id: 'academy', label: '🎓 Crypto Academy & Spare Change', icon: GraduationCap }
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              id={`earn-tab-${tab.id}`}
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id as any); setStakingError(''); }}
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-sans font-bold transition cursor-pointer ${
+                isActive 
+                  ? 'bg-slate-900 text-cyan-400 border border-slate-850 shadow-md' 
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* GENERAL SAVINGS CARD METRICS PASSBOOK */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl">
+          <span className="text-[10px] font-sans text-slate-500 block font-bold uppercase">My Total Staked Balance</span>
+          <span className="text-xl font-mono font-bold text-white mt-1 block">
             ${totalStakedValuation.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </span>
-          <span className="text-[10px] font-sans text-slate-400 mt-1 block">Compounding live via validator epochs</span>
+          <span className="text-[10px] text-slate-400 block mt-1.5">This crypto is safely isolated and earning yield!</span>
         </div>
 
-        <div className="p-4 bg-slate-950/40 border border-slate-900 rounded-xl">
-          <span className="text-[9px] font-mono text-slate-500 uppercase block">Fee Rebate Lock Status</span>
-          <span className="text-xs font-bold text-emerald-400 font-mono mt-1.5 block">{activeRebateTier}</span>
-          <span className="text-[10px] font-sans text-slate-500 block mt-1">Locks unlock globally on expiration</span>
+        <div className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl">
+          <span className="text-[10px] font-sans text-slate-500 block font-bold uppercase">Transaction Fee Rebate Tier</span>
+          <span className="text-xs font-sans font-bold text-emerald-400 mt-2 block">{activeRebateTier}</span>
+          <span className="text-[10px] text-slate-400 block mt-1.5">You enjoy scaled reductions across all order desks!</span>
         </div>
 
-        <div className="p-4 bg-slate-950/40 border border-slate-900 rounded-xl">
-          <span className="text-[9px] font-mono text-slate-500 uppercase block">DCA Roundup Cache</span>
-          <span className="text-lg font-bold text-cyan-400 font-mono mt-1 block">${accumulatedDcaUsdc.toFixed(2)} USDC</span>
+        <div className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl">
+          <span className="text-[10px] font-sans text-slate-500 block font-bold uppercase">Spare Change Sweep Cache</span>
+          <span className="text-xl font-mono font-bold text-cyan-400 mt-1 block">${accumulatedDcaUsdc.toFixed(2)} USDC</span>
           <button 
             id="btn-execute-dca-buy"
             onClick={executeDcaPurchase}
             disabled={accumulatedDcaUsdc <= 0}
-            className="text-[9px] font-mono text-cyan-400 hover:text-cyan-300 transition mt-1 block cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-[10px] font-sans text-cyan-400 hover:text-cyan-300 font-bold transition mt-1.5 block cursor-pointer disabled:opacity-50"
           >
-            Execute micro-purchase ❯
+            Convert cache into coins now ❯
           </button>
-        </div>
-
-        {/* Real-time rewards ticker */}
-        <div className="p-4 bg-slate-950/40 border border-slate-900/60 rounded-xl relative overflow-hidden">
-          <span className="text-[9px] font-mono text-slate-500 uppercase block">Live Staking Yields Ticker</span>
-          <div className="space-y-0.5 mt-1.5 font-mono text-[10px]">
-            {Object.keys(BASE_APY_RATES).map((sym) => {
-              const staked = stakedBalances[sym] || 0;
-              return (
-                <div key={sym} className="flex justify-between items-center">
-                  <span className="text-slate-400">{sym} Earned</span>
-                  <span className={staked > 0 ? 'text-emerald-400 font-bold animate-pulse' : 'text-slate-500'}>
-                    {accruedRewards[sym].toFixed(6)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
         </div>
       </div>
 
       <AnimatePresence mode="wait">
         
-        {/* --- TAB 1: CORE STAKING & LSD --- */}
+        {/* TAB 1: CORE STAKING (GROW COINS) */}
         {activeTab === 'flexible' && (
           <motion.div
             key="flexible"
@@ -882,15 +850,15 @@ export default function EarnView({
             exit={{ opacity: 0, y: -10 }}
             className="grid grid-cols-1 lg:grid-cols-12 gap-6"
           >
-            {/* Staking Pools and Artifact Boosters */}
             <div className="lg:col-span-8 space-y-6">
-              <div className="p-6 bg-slate-950/40 border border-slate-900 rounded-2xl">
+              
+              <div className="p-6 bg-slate-950/40 border border-slate-900 rounded-3xl">
                 <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-5">
-                  <h3 className="text-sm font-semibold font-mono tracking-wider text-slate-200 uppercase flex items-center gap-2">
+                  <h3 className="text-sm font-sans font-bold text-slate-200 uppercase flex items-center gap-1.5">
                     <Coins className="w-4 h-4 text-emerald-400" />
-                    Flexible Validator Pools
+                    Available Growth Pools
                   </h3>
-                  <span className="text-[10px] font-mono text-slate-500">LIQUID APY CONFIGURATIONS</span>
+                  <span className="text-[10px] font-sans text-slate-400 font-bold">CHOOSE COIN TO GROW</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -899,7 +867,6 @@ export default function EarnView({
                     const apy = computedAPYRates[symbol];
                     const isSelected = selectedSymbol === symbol;
                     const stakedAmount = stakedBalances[symbol] || 0;
-                    const isStaked = stakedAmount > 0;
 
                     if (!asset) return null;
 
@@ -908,40 +875,39 @@ export default function EarnView({
                         id={`stake-pool-${symbol}`}
                         key={symbol}
                         onClick={() => { setSelectedSymbol(symbol); setStakingError(''); }}
-                        className={`p-4 rounded-xl text-left transition-all border cursor-pointer ${
+                        className={`p-4 rounded-2xl text-left transition-all border cursor-pointer ${
                           isSelected 
-                            ? 'bg-slate-900 border-emerald-500/50 shadow-md' 
+                            ? 'bg-slate-900 border-emerald-500/50 shadow-lg shadow-emerald-950/15' 
                             : 'bg-slate-950/60 border-slate-900 hover:border-slate-800'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-sans font-bold text-white tracking-wider">{symbol}</span>
+                            <span className="text-sm font-sans font-extrabold text-white">{symbol}</span>
                             <span className="text-[10px] font-sans text-slate-500">{asset.name}</span>
                           </div>
-                          <span className="px-2 py-0.5 bg-emerald-950/40 border border-emerald-900/40 text-emerald-400 rounded-lg text-[10px] font-mono font-bold">
-                            {apy.toFixed(2)}% APY
+                          <span className="px-2.5 py-0.5 bg-emerald-950/80 border border-emerald-900/40 text-emerald-400 rounded-xl text-[10px] font-sans font-bold">
+                            Grow +{apy.toFixed(2)}% yearly
                           </span>
                         </div>
 
-                        <div className="space-y-1 text-xs font-mono">
-                          <div className="flex justify-between text-slate-500">
-                            <span>In Wallet:</span>
-                            <span className="text-slate-300">{(balances[symbol] || 0).toFixed(4)}</span>
+                        <div className="space-y-1 text-xs font-sans">
+                          <div className="flex justify-between text-slate-400">
+                            <span>Ready in wallet:</span>
+                            <span className="text-slate-300 font-mono">{(balances[symbol] || 0).toFixed(4)}</span>
                           </div>
-                          <div className="flex justify-between text-slate-500">
-                            <span>Staked Amount:</span>
-                            <span className={`${isStaked ? 'text-emerald-400 font-bold' : 'text-slate-500'}`}>
+                          <div className="flex justify-between text-slate-400">
+                            <span>Staked growing balance:</span>
+                            <span className={`${stakedAmount > 0 ? 'text-emerald-400 font-bold' : 'text-slate-500'} font-mono`}>
                               {stakedAmount.toFixed(4)}
                             </span>
                           </div>
                         </div>
 
-                        {/* Artifact boosted flag */}
                         {artifacts.some(a => a.equipped && (a.targetAsset === 'GLOBAL' || a.targetAsset === symbol)) && (
-                          <div className="mt-2.5 pt-2 border-t border-slate-900/80 flex items-center gap-1 text-[9px] font-mono text-cyan-400">
-                            <Sparkles className="w-3 h-3 text-cyan-400" />
-                            Equipped Artifact boosting APY
+                          <div className="mt-2.5 pt-2 border-t border-slate-900/40 flex items-center gap-1.5 text-[9px] font-sans text-cyan-400 font-bold">
+                            <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                            Active Socket Booster Equipped!
                           </div>
                         )}
                       </button>
@@ -950,15 +916,15 @@ export default function EarnView({
                 </div>
               </div>
 
-              {/* 26. Visual Yield Boosting Artifact Lockers */}
-              <div className="p-6 bg-slate-950/40 border border-slate-900 rounded-2xl">
+              {/* Socket Boosters */}
+              <div className="p-6 bg-slate-950/40 border border-slate-900 rounded-3xl">
                 <div>
-                  <h3 className="text-sm font-semibold font-mono tracking-wider text-slate-200 uppercase flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-cyan-400" />
-                    Consensus Yield Boosting Artifacts
+                  <h3 className="text-sm font-sans font-bold text-slate-200 uppercase flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-cyan-400 animate-spin" style={{ animationDuration: '6s' }} />
+                    Secure Validator Growth Boosters
                   </h3>
-                  <p className="text-xs font-sans text-slate-400 mt-1">
-                    Socket rare cryptographic artifacts acquired through platform loyalty directly to the validator interface to permanently boost active pool rates.
+                  <p className="text-xs font-sans text-slate-400 mt-1 leading-relaxed">
+                    Obtained some rare platform boosters? Place them in your validator socket slots to instantly speed up your daily staking compound rate!
                   </p>
                 </div>
 
@@ -966,7 +932,7 @@ export default function EarnView({
                   {artifacts.map((art) => (
                     <div 
                       key={art.id} 
-                      className={`p-4 rounded-xl border flex flex-col justify-between ${
+                      className={`p-4 rounded-2xl border flex flex-col justify-between ${
                         art.equipped 
                           ? 'bg-cyan-950/20 border-cyan-500/50' 
                           : 'bg-slate-900/40 border-slate-900'
@@ -975,7 +941,7 @@ export default function EarnView({
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-bold text-white">{art.name}</span>
-                          <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
+                          <span className={`text-[9px] font-sans px-2 py-0.5 rounded-full ${
                             art.tier === 'Cosmic' 
                               ? 'bg-purple-950 text-purple-400 border border-purple-900/40' 
                               : art.tier === 'Relic' 
@@ -985,24 +951,24 @@ export default function EarnView({
                             {art.tier}
                           </span>
                         </div>
-                        <p className="text-[10px] font-sans text-slate-300 leading-relaxed">
+                        <p className="text-[10px] font-sans text-slate-300 leading-normal">
                           {art.description}
                         </p>
-                        <div className="mt-3 text-[10px] font-mono text-emerald-400">
-                          Yield Multiplier: +{art.boost.toFixed(2)}% APY
+                        <div className="mt-3 text-[10px] font-sans font-bold text-emerald-400">
+                          Speed Boost: +{art.boost.toFixed(2)}% APY
                         </div>
                       </div>
 
                       <button
                         id={`btn-equip-artifact-${art.id}`}
                         onClick={() => toggleArtifact(art.id)}
-                        className={`w-full py-1.5 text-[10px] font-mono font-bold rounded-lg mt-4 cursor-pointer transition ${
+                        className={`w-full py-2 text-[10px] font-sans font-bold rounded-xl mt-4 cursor-pointer transition ${
                           art.equipped 
                             ? 'bg-cyan-950/40 text-cyan-400 border border-cyan-800' 
-                            : 'bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800'
+                            : 'bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-850'
                         }`}
                       >
-                        {art.equipped ? 'UNEQUIP FROM SOCKET' : 'EQUIP TO SLOT'}
+                        {art.equipped ? '⚡ Socketed (On)' : 'Equip Booster'}
                       </button>
                     </div>
                   ))}
@@ -1010,10 +976,9 @@ export default function EarnView({
               </div>
             </div>
 
-            {/* Right Form Desk: Interactive Stake & Minting */}
+            {/* Right side desk: deposit/withdrawal */}
             <div className="lg:col-span-4 space-y-6">
               
-              {/* Core Staking Form */}
               <div className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl">
                 <form onSubmit={handleStakeSubmit} className="space-y-4">
                   <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-900">
@@ -1021,53 +986,53 @@ export default function EarnView({
                       id="stake-action-deposit"
                       type="button"
                       onClick={() => { setStakeAction('stake'); setStakingError(''); }}
-                      className={`flex-1 py-2 text-xs font-mono font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      className={`flex-1 py-2 text-xs font-sans font-bold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
                         stakeAction === 'stake' ? 'bg-slate-800 text-emerald-400 shadow-md' : 'text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      <Lock className="w-3.5 h-3.5" />
-                      STAKE {selectedSymbol}
+                      <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                      Grow Coins
                     </button>
                     <button
                       id="stake-action-withdraw"
                       type="button"
                       onClick={() => { setStakeAction('unstake'); setStakingError(''); }}
-                      className={`flex-1 py-2 text-xs font-mono font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      className={`flex-1 py-2 text-xs font-sans font-bold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
                         stakeAction === 'unstake' ? 'bg-slate-800 text-emerald-400 shadow-md' : 'text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      <Unlock className="w-3.5 h-3.5" />
-                      UNSTAKE {selectedSymbol}
+                      <Unlock className="w-3.5 h-3.5 text-slate-400" />
+                      Reclaim Coins
                     </button>
                   </div>
 
                   <div className="p-4 bg-slate-950/60 border border-slate-900 rounded-xl space-y-2.5">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="font-mono text-slate-500 uppercase">Selected Pool</span>
-                      <span className="font-sans font-bold text-white tracking-wider">{selectedSymbol} Pool</span>
+                      <span className="font-sans text-slate-500 font-bold uppercase">Coin Chosen</span>
+                      <span className="font-sans font-extrabold text-white">{selectedSymbol} Pool</span>
                     </div>
                     <div className="flex justify-between items-center text-xs border-t border-slate-900/50 pt-2">
-                      <span className="font-mono text-slate-500 uppercase">Active Yield Rate</span>
-                      <span className="font-mono font-bold text-emerald-400">{selectedAPY.toFixed(2)}% APY</span>
+                      <span className="font-sans text-slate-500 font-bold uppercase">Growth Speed</span>
+                      <span className="font-mono font-bold text-emerald-400">+{selectedAPY.toFixed(2)}% Yearly APY</span>
                     </div>
                     <div className="flex justify-between items-center text-xs border-t border-slate-900/50 pt-2">
-                      <span className="font-mono text-slate-500 uppercase">Liquid Wallet</span>
+                      <span className="font-sans text-slate-500 font-bold uppercase">Active Wallet</span>
                       <span className="font-mono text-slate-300">{(balances[selectedSymbol] || 0).toFixed(4)} {selectedSymbol}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs border-t border-slate-900/50 pt-2">
-                      <span className="font-mono text-slate-500 uppercase">Staked Balance</span>
-                      <span className="font-mono text-emerald-400">{(stakedBalances[selectedSymbol] || 0).toFixed(4)} {selectedSymbol}</span>
+                      <span className="font-sans text-slate-500 font-bold uppercase">Staked growing</span>
+                      <span className="font-mono text-emerald-400 font-extrabold">{(stakedBalances[selectedSymbol] || 0).toFixed(4)} {selectedSymbol}</span>
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-mono">
-                      <label className="text-slate-400">{stakeAction === 'stake' ? 'Deposit Capital' : 'Withdraw Staked'}</label>
+                    <div className="flex justify-between text-xs font-sans">
+                      <label className="text-slate-400 font-bold">{stakeAction === 'stake' ? 'Coins to Grow' : 'Coins to Reclaim'}</label>
                       <button
                         id="stake-max-btn"
                         type="button"
                         onClick={handleMaxClick}
-                        className="text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                        className="text-cyan-400 hover:text-cyan-300 cursor-pointer font-bold"
                       >
                         Use Max
                       </button>
@@ -1077,7 +1042,7 @@ export default function EarnView({
                         id="stake-amount-input"
                         type="number"
                         step="any"
-                        placeholder="0.00"
+                        placeholder="e.g. 1.0"
                         value={stakeAction === 'stake' ? stakeAmount : unstakeAmount}
                         onChange={(e) => {
                           if (stakeAction === 'stake') {
@@ -1086,35 +1051,35 @@ export default function EarnView({
                             setUnstakeAmount(e.target.value);
                           }
                         }}
-                        className="w-full bg-slate-950 border border-slate-900 focus:border-emerald-500/50 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none transition-colors font-mono"
+                        className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none font-mono"
                       />
-                      <span className="absolute right-3.5 top-2.5 text-xs font-mono text-slate-500">{selectedSymbol}</span>
+                      <span className="absolute right-3.5 top-2.5 text-xs font-sans text-slate-500 font-bold">{selectedSymbol}</span>
                     </div>
                   </div>
 
                   {stakingError && (
-                    <p className="text-xs font-mono text-red-400">{stakingError}</p>
+                    <p className="text-xs font-sans text-red-400 font-bold bg-red-950/25 border border-red-900/40 p-2.5 rounded-lg">⚠️ {stakingError}</p>
                   )}
 
                   <button
                     id="stake-submit-btn"
                     type="submit"
-                    className="w-full py-3 bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-sans font-bold text-xs rounded-xl shadow-lg transition tracking-wide cursor-pointer"
+                    className="w-full py-3 bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-sans font-bold text-xs rounded-xl shadow-lg transition tracking-wide cursor-pointer uppercase"
                   >
-                    {stakeAction === 'stake' ? 'CONFIRM DEPOSIT' : 'CONFIRM WITHDRAWAL'}
+                    {stakeAction === 'stake' ? 'Confirm Grow Order 🌱' : 'Confirm Reclaim Order 🔓'}
                   </button>
                 </form>
               </div>
 
-              {/* 22. Liquid Staking Tokenization Derivatives (Nexus stAssets) */}
+              {/* Liquid Staking derivatives */}
               <div className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl space-y-4">
                 <div>
-                  <h4 className="text-xs font-bold font-mono tracking-wider text-slate-200 uppercase flex items-center gap-1.5">
-                    <Layers className="w-4 h-4 text-emerald-400" />
-                    Liquid Staking Derivatives
+                  <h4 className="text-xs font-bold font-sans tracking-wider text-slate-200 uppercase flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-cyan-400" />
+                    Liquid Tradeable Helper Coins
                   </h4>
                   <p className="text-[11px] font-sans text-slate-400 mt-1">
-                    Mint representative synthetic stAssets (stSOL / stETH) 1:1 against active staking. Earn validation rewards while maintaining perfect liquidity to trade or exit.
+                    Want to keep tradeability? Mint representative helper assets 1:1 against your staked coins. You earn growth bonuses silently while holding a highly liquid token!
                   </p>
                 </div>
 
@@ -1124,32 +1089,32 @@ export default function EarnView({
                       id="mint-tab-sol"
                       type="button"
                       onClick={() => setMintAsset('SOL')}
-                      className={`flex-1 py-1.5 font-mono rounded-lg transition-all cursor-pointer ${
+                      className={`flex-1 py-1.5 font-sans font-bold rounded-lg transition-all cursor-pointer ${
                         mintAsset === 'SOL' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400'
                       }`}
                     >
-                      SOL ➔ stSOL
+                      SOL ➔ stSOL helper
                     </button>
                     <button
                       id="mint-tab-eth"
                       type="button"
                       onClick={() => setMintAsset('ETH')}
-                      className={`flex-1 py-1.5 font-mono rounded-lg transition-all cursor-pointer ${
+                      className={`flex-1 py-1.5 font-sans font-bold rounded-lg transition-all cursor-pointer ${
                         mintAsset === 'ETH' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400'
                       }`}
                     >
-                      ETH ➔ stETH
+                      ETH ➔ stETH helper
                     </button>
                   </div>
 
-                  <div className="p-3 bg-slate-950/60 border border-slate-900 rounded-xl space-y-2 text-[11px] font-mono">
+                  <div className="p-3 bg-slate-950/60 border border-slate-900 rounded-xl space-y-2 text-[11px] font-sans">
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Staked {mintAsset}:</span>
-                      <span className="text-slate-300">{(stakedBalances[mintAsset] || 0).toFixed(4)}</span>
+                      <span className="text-slate-400 font-bold">Staked {mintAsset}:</span>
+                      <span className="text-slate-300 font-mono">{(stakedBalances[mintAsset] || 0).toFixed(4)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Derivative Balance:</span>
-                      <span className="text-cyan-400 font-semibold">{(stBalances[`st${mintAsset}`] || 0).toFixed(4)} st{mintAsset}</span>
+                      <span className="text-slate-400 font-bold">Helper Coin Balance:</span>
+                      <span className="text-cyan-400 font-bold font-mono">{(stBalances[`st${mintAsset}`] || 0).toFixed(4)} st{mintAsset}</span>
                     </div>
                   </div>
 
@@ -1158,19 +1123,18 @@ export default function EarnView({
                       <input
                         id="mint-derivative-input"
                         type="number"
-                        placeholder="0.00"
                         value={mintAmount}
                         onChange={(e) => setMintAmount(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:outline-none"
+                        className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none"
                       />
-                      <span className="absolute right-2 top-1.5 text-[10px] text-slate-500">{mintAsset}</span>
+                      <span className="absolute right-2 top-1.5 text-[10px] text-slate-500 font-bold">{mintAsset}</span>
                     </div>
                     <button
                       id="btn-mint-derivative"
                       onClick={handleMintstAsset}
-                      className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-mono font-bold rounded-lg transition cursor-pointer"
+                      className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-sans font-bold rounded-lg transition cursor-pointer"
                     >
-                      Mint 1:1
+                      Mint Helper
                     </button>
                   </div>
 
@@ -1178,9 +1142,9 @@ export default function EarnView({
                     <button
                       id="btn-burn-derivative"
                       onClick={() => handleBurnstAsset(`st${mintAsset}`)}
-                      className="w-full py-2 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-mono rounded-lg transition cursor-pointer"
+                      className="w-full py-2 bg-slate-900 border border-slate-850 hover:border-slate-700 text-slate-300 text-xs font-sans font-bold rounded-xl transition cursor-pointer"
                     >
-                      Redeem st{mintAsset} to Base Staking
+                      Redeem st{mintAsset} back to normal staking
                     </button>
                   )}
                 </div>
@@ -1189,7 +1153,7 @@ export default function EarnView({
           </motion.div>
         )}
 
-        {/* --- TAB 2: YIELD OPTIMIZERS --- */}
+        {/* TAB 2: YIELD OPTIMIZERS (AUTO-COMPOUND BOOSTERS) */}
         {activeTab === 'optimizers' && (
           <motion.div
             key="optimizers"
@@ -1198,19 +1162,18 @@ export default function EarnView({
             exit={{ opacity: 0, y: -10 }}
             className="grid grid-cols-1 lg:grid-cols-3 gap-6"
           >
-            {/* 21. Auto-Compounding Smart Yield Optimizers */}
-            <div className="lg:col-span-2 bg-slate-950/40 border border-slate-900/60 rounded-2xl p-6 flex flex-col justify-between">
+            <div className="lg:col-span-2 bg-slate-950/40 border border-slate-900/60 rounded-3xl p-6 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4 border-b border-slate-900 pb-3">
-                  <h3 className="text-sm font-semibold font-mono tracking-wider text-slate-200 uppercase flex items-center gap-2">
+                  <h3 className="text-sm font-sans font-bold text-slate-200 uppercase flex items-center gap-1.5">
                     <Zap className="w-4 h-4 text-emerald-400 animate-pulse" />
-                    Auto-Compounding Smart Yield Lockers
+                    Auto-Compounding Piggy Bank Boosters 🚀
                   </h3>
-                  <span className="text-[10px] font-mono text-slate-500 bg-slate-900 px-2 py-0.5 rounded">GAS-OPTIMIZED RE-STAKING</span>
+                  <span className="text-[10px] font-sans text-slate-500 bg-slate-900 px-2.5 py-1 rounded-full font-bold">AUTOMATED MAGIC</span>
                 </div>
 
                 <p className="text-xs font-sans text-slate-400 mb-6 leading-relaxed">
-                  Automated scripts scan validator block intervals, harvesting staking payouts precisely at peak mathematical thresholds, and rolling rewards back into staked principal to maximize compound metrics.
+                  Normally, you have to claim your growth rewards and lock them back in yourself. Our background scripts do this for you at peak mathematical intervals, multiplying your returns automatically without you lifting a finger!
                 </p>
 
                 <div className="space-y-4">
@@ -1222,41 +1185,41 @@ export default function EarnView({
                     return (
                       <div 
                         key={sym} 
-                        className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl flex items-center justify-between gap-4"
+                        className="p-4 bg-slate-900/20 border border-slate-900 rounded-2xl flex items-center justify-between gap-4"
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center">
-                            <span className="text-xs font-mono font-bold text-white">{sym}</span>
+                            <span className="text-xs font-sans font-bold text-cyan-400">🪙 {sym}</span>
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-white">{sym} Compounder</span>
-                              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950/30 text-emerald-400 border border-emerald-900/40">
-                                +1.50% APY Boost
+                              <span className="text-xs font-sans font-bold text-white">{sym} Auto-Compounder</span>
+                              <span className="text-[9px] font-sans px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-900/40 font-bold">
+                                APY Speeded up! +1.50%
                               </span>
                             </div>
-                            <p className="text-[10px] font-mono text-slate-500 mt-1">
-                              Active Stake: {activeStake.toFixed(4)} {sym} • Compounding APY: {baseApy.toFixed(2)}%
+                            <p className="text-[10px] font-sans text-slate-400 mt-1">
+                              My active growing coins: {activeStake.toFixed(4)} {sym} • Growth speed: {baseApy.toFixed(2)}% APY
                             </p>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-4">
-                          <div className="text-right hidden sm:block">
-                            <span className="text-[9px] font-mono text-slate-500 uppercase block">OPTIMAL INTERVAL</span>
-                            <span className="text-xs font-bold text-slate-300 font-mono">Every 4.2 Hours</span>
+                          <div className="text-right hidden sm:block font-sans">
+                            <span className="text-[9px] text-slate-500 uppercase block font-bold">Reinvestment frequency</span>
+                            <span className="text-xs font-bold text-slate-300 font-mono">Every 4.2 hours</span>
                           </div>
 
                           <button
                             id={`btn-toggle-compound-${sym}`}
                             onClick={() => toggleAutoCompound(sym)}
-                            className={`px-3 py-1.5 text-xs font-mono rounded-lg transition cursor-pointer ${
+                            className={`px-3 py-1.5 text-xs font-sans font-bold rounded-lg transition cursor-pointer ${
                               isEnabled 
-                                ? 'bg-emerald-500 text-slate-950 font-bold' 
-                                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
+                                ? 'bg-emerald-500 text-slate-950' 
+                                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-850'
                             }`}
                           >
-                            {isEnabled ? 'ACTIVE' : 'ACTIVATE'}
+                            {isEnabled ? 'ON ✅' : 'ACTIVATE'}
                           </button>
                         </div>
                       </div>
@@ -1265,18 +1228,18 @@ export default function EarnView({
                 </div>
               </div>
 
-              {/* Real-time optimizer log feed */}
-              <div className="mt-6 p-4 bg-slate-950 border border-slate-900 rounded-xl font-mono text-[10px]">
+              {/* Live compounder logs */}
+              <div className="mt-6 p-4 bg-slate-950 border border-slate-900 rounded-2xl font-sans text-[10px]">
                 <div className="flex items-center justify-between border-b border-slate-900 pb-2 mb-2 text-emerald-400">
-                  <span className="flex items-center gap-1.5">
+                  <span className="flex items-center gap-1.5 font-bold uppercase">
                     <Activity className="w-3.5 h-3.5" />
-                    PEAK YIELD HARVESTER DIAGNOSTIC LOGS
+                    Automated Growth Bot Log feed
                   </span>
-                  <span className="text-slate-500 animate-pulse">● LIVE TELEMETRY</span>
+                  <span className="text-slate-500 animate-pulse font-bold">● ACTIVE AGENT RUNNING</span>
                 </div>
-                <div className="space-y-1.5 text-slate-400 max-h-36 overflow-y-auto">
+                <div className="space-y-1 text-slate-400 max-h-36 overflow-y-auto">
                   {compoundLogs.map((log, idx) => (
-                    <div key={idx} className="flex items-start gap-1">
+                    <div key={idx} className="flex items-start gap-1 font-mono text-[9px]">
                       <span className="text-emerald-500">❯</span>
                       <span className="leading-normal">{log}</span>
                     </div>
@@ -1285,28 +1248,28 @@ export default function EarnView({
               </div>
             </div>
 
-            {/* 27. Cross-Asset Yield Optimization Router */}
-            <div className="bg-slate-950/40 border border-slate-900/60 rounded-2xl p-6 flex flex-col justify-between">
+            {/* One click relocation */}
+            <div className="bg-slate-950/40 border border-slate-900/60 rounded-3xl p-6 flex flex-col justify-between">
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-semibold font-mono tracking-wider text-slate-200 uppercase flex items-center gap-2">
-                    <ArrowRightLeft className="w-4 h-4 text-cyan-400" />
-                    Cross-Asset Yield Router
+                  <h3 className="text-sm font-sans font-bold text-slate-200 uppercase flex items-center gap-1.5">
+                    <ArrowRightLeft className="w-4 h-4 text-cyan-400 animate-pulse" />
+                    One-Click Yield Relocation Optimizer
                   </h3>
                   <p className="text-xs font-sans text-slate-400 mt-1 leading-relaxed">
-                    Instantly identify maximum APY positions across external decentralized protocols (Lido, RocketPool, Aave) and automatically migrate active deposits into optimized positions with one button.
+                    Tired of manual deposits across external staking services like Lido or Aave? Our scanner compares rates and moves your deposits to Nexus in 1-click for maximum speed rewards!
                   </p>
                 </div>
 
-                <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl space-y-3">
-                  <label className="text-xs font-mono text-slate-400 uppercase">Target Staking Asset to Route:</label>
+                <div className="p-4 bg-slate-900/20 border border-slate-900 rounded-2xl space-y-3">
+                  <label className="text-xs font-sans text-slate-400 uppercase font-bold">Staked asset to optimize:</label>
                   <div className="grid grid-cols-4 gap-2">
                     {['SOL', 'ETH', 'LINK', 'DOT'].map(sym => (
                       <button
                         id={`btn-router-sym-${sym}`}
                         key={sym}
                         onClick={() => setSelectedSymbol(sym)}
-                        className={`py-1.5 text-xs font-mono rounded transition cursor-pointer ${
+                        className={`py-1.5 text-xs font-sans font-bold rounded-lg transition cursor-pointer ${
                           selectedSymbol === sym 
                             ? 'bg-slate-800 text-cyan-400 border border-slate-700' 
                             : 'bg-slate-950 text-slate-400 border border-slate-900'
@@ -1318,32 +1281,32 @@ export default function EarnView({
                   </div>
 
                   <div className="pt-2">
-                    <label className="text-[10px] font-mono text-slate-500 uppercase">Select Source Protocol to Migrate:</label>
+                    <label className="text-[10px] font-sans text-slate-500 uppercase font-bold">Select external site to pull from:</label>
                     <select
                       id="select-router-source"
                       value={routerSelectedPool}
                       onChange={(e) => setRouterSelectedPool(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-lg p-2 text-xs font-sans text-white mt-1"
+                      className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl p-2.5 text-xs font-sans font-bold text-white mt-1"
                     >
-                      <option value="Lido">Lido Finance Staking Pool ({selectedSymbol === 'ETH' ? '3.85%' : '5.10%'} APY)</option>
-                      <option value="Aave">Aave V3 Lending Vaults ({selectedSymbol === 'ETH' ? '2.90%' : '4.20%'} APY)</option>
-                      <option value="RocketPool">RocketPool Validator Nodes ({selectedSymbol === 'ETH' ? '4.05%' : '5.30%'} APY)</option>
+                      <option value="Lido">Lido Finance Pool ({selectedSymbol === 'ETH' ? '3.85%' : '5.10%'} APY)</option>
+                      <option value="Aave">Aave Lending Vault ({selectedSymbol === 'ETH' ? '2.90%' : '4.20%'} APY)</option>
+                      <option value="RocketPool">RocketPool Validator ({selectedSymbol === 'ETH' ? '4.05%' : '5.30%'} APY)</option>
                     </select>
                   </div>
                 </div>
 
-                <div className="p-4 bg-slate-950 border border-slate-900 rounded-xl space-y-2 text-xs font-mono">
+                <div className="p-4 bg-slate-950 border border-slate-900 rounded-2xl space-y-2 text-xs font-sans">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Source Pool APY:</span>
-                    <span className="text-slate-400">{routerSelectedPool === 'Lido' ? '3.85%' : '2.90%'}</span>
+                    <span className="text-slate-400">External Pool yield:</span>
+                    <span className="text-slate-400 font-semibold">{routerSelectedPool === 'Lido' ? '3.85%' : '2.90%'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Nexus Optimizing APY:</span>
-                    <span className="text-emerald-400 font-semibold">{computedAPYRates[selectedSymbol].toFixed(2)}% APY</span>
+                    <span className="text-slate-400">Nexus Optimizing yield:</span>
+                    <span className="text-emerald-400 font-bold">+{computedAPYRates[selectedSymbol].toFixed(2)}% APY</span>
                   </div>
                   <div className="flex justify-between border-t border-slate-900 pt-1.5">
-                    <span className="text-cyan-400 font-bold">Estimated Yield Bump:</span>
-                    <span className="text-cyan-400 font-bold font-mono">+{Math.max(0.5, computedAPYRates[selectedSymbol] - 4).toFixed(2)}% APY</span>
+                    <span className="text-cyan-400 font-bold">Speed Improvement:</span>
+                    <span className="text-cyan-400 font-bold">+{Math.max(0.5, computedAPYRates[selectedSymbol] - 4).toFixed(2)}% APY</span>
                   </div>
                 </div>
               </div>
@@ -1353,26 +1316,26 @@ export default function EarnView({
                   id="btn-trigger-cross-route"
                   onClick={handleCrossAssetRoute}
                   disabled={routingInProcess}
-                  className="w-full py-2.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 text-xs font-mono font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                  className="w-full py-3 bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 text-xs font-sans font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1"
                 >
                   {routingInProcess ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      RE-ROUTING CAPITALS...
+                      Optimizing routes...
                     </>
                   ) : (
                     <>
                       <ArrowRightLeft className="w-4 h-4" />
-                      EXECUTE ROUTE & BOOST
+                      Migrate to Nexus & Boost APY! 🚀
                     </>
                   )}
                 </button>
 
                 {routeSteps.length > 0 && (
-                  <div className="p-3 bg-slate-950 border border-slate-900 rounded-lg text-[9px] font-mono text-slate-400 space-y-1">
+                  <div className="p-3.5 bg-slate-950 border border-slate-900 rounded-xl text-[10px] font-sans text-slate-400 space-y-1">
                     {routeSteps.map((step, i) => (
                       <div key={i} className="flex gap-1.5">
-                        <span className="text-cyan-500">✓</span>
+                        <span className="text-cyan-400 font-bold">✓</span>
                         <span>{step}</span>
                       </div>
                     ))}
@@ -1383,7 +1346,7 @@ export default function EarnView({
           </motion.div>
         )}
 
-        {/* --- TAB 3: LOCKS & SAFES --- */}
+        {/* TAB 3: LOCKS & SAFES (TIME-LOCKED PIGGY BANKS) */}
         {activeTab === 'lockers' && (
           <motion.div
             key="lockers"
@@ -1392,94 +1355,93 @@ export default function EarnView({
             exit={{ opacity: 0, y: -10 }}
             className="grid grid-cols-1 lg:grid-cols-3 gap-6"
           >
-            {/* 23. Gamified Vault Locking Tiers */}
-            <div className="lg:col-span-2 bg-slate-950/40 border border-slate-900/60 rounded-2xl p-6 flex flex-col justify-between">
+            <div className="lg:col-span-2 bg-slate-950/40 border border-slate-900/60 rounded-3xl p-6 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4 border-b border-slate-900 pb-3">
-                  <h3 className="text-sm font-semibold font-mono tracking-wider text-slate-200 uppercase flex items-center gap-2">
+                  <h3 className="text-sm font-sans font-bold text-slate-200 uppercase flex items-center gap-1.5">
                     <Award className="w-4 h-4 text-cyan-400" />
-                    Gamified Vault Locking Tiers & Fee Rebates
+                    NEX Token Locks & Global Fee reductions!
                   </h3>
-                  <span className="text-[10px] font-mono text-slate-500">PERMANENT PLATFORM BOOSTS</span>
+                  <span className="text-[10px] font-sans text-slate-400 font-bold uppercase">Reward center</span>
                 </div>
 
                 <p className="text-xs font-sans text-slate-400 mb-6 leading-relaxed">
-                  Lock your native **NEX** exchange tokens into smart non-custodial custody vaults for predetermined periods. Tiered locks instantly activate global trading fee rebate multipliers on all spot and limit desks.
+                  Support the platform by locking **NEX** utility tokens for a few months. In return, we will scale down your transaction fee buffer rates globally! It is a win-win gamified growth engine.
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {[
-                    { id: 'bronze', name: 'Bronze Locker', amount: 100, days: 30, rebate: 15, bg: 'from-amber-900/20 to-amber-950/20', border: 'border-amber-900/40', text: 'text-amber-400' },
-                    { id: 'silver', name: 'Silver Guardian', amount: 500, days: 90, rebate: 35, bg: 'from-slate-800/30 to-slate-900/30', border: 'border-slate-700/40', text: 'text-slate-300' },
-                    { id: 'gold', name: 'Gold Vault Master', amount: 2000, days: 365, rebate: 60, bg: 'from-cyan-950/30 to-teal-950/30', border: 'border-cyan-800/40', text: 'text-cyan-400' }
+                    { id: 'bronze', name: 'Bronze Locker', amount: 100, days: 30, rebate: 15, bg: 'from-amber-950/20 to-amber-900/10', border: 'border-amber-900/40', text: 'text-amber-400' },
+                    { id: 'silver', name: 'Silver Guardian', amount: 500, days: 90, rebate: 35, bg: 'from-slate-900/30 to-slate-800/10', border: 'border-slate-800/60', text: 'text-slate-300' },
+                    { id: 'gold', name: 'Gold Vault Master', amount: 2000, days: 365, rebate: 60, bg: 'from-cyan-950/30 to-teal-950/20', border: 'border-cyan-800/40', text: 'text-cyan-400' }
                   ].map((tier) => (
                     <div 
                       key={tier.id} 
-                      className={`p-5 rounded-xl border bg-gradient-to-b ${tier.bg} ${tier.border} flex flex-col justify-between space-y-4`}
+                      className={`p-5 rounded-2xl border bg-gradient-to-b ${tier.bg} ${tier.border} flex flex-col justify-between space-y-4 shadow-md`}
                     >
                       <div>
-                        <span className={`text-xs font-mono font-bold uppercase block ${tier.text}`}>{tier.name}</span>
+                        <span className={`text-xs font-sans font-bold uppercase block ${tier.text}`}>{tier.name}</span>
                         <div className="mt-2">
                           <span className="text-xl font-mono font-bold text-white">{tier.amount} NEX</span>
-                          <span className="text-[10px] font-mono text-slate-500 block">Required balance lock</span>
+                          <span className="text-[9px] font-sans text-slate-500 block">Balance to freeze</span>
                         </div>
                         <div className="mt-3 space-y-1 text-[11px] font-sans text-slate-300">
-                          <div>• Duration: **{tier.days} Days**</div>
-                          <div>• Global Rebate: <strong className="text-emerald-400">-{tier.rebate}% Fees</strong></div>
+                          <div>• Lock duration: <strong>{tier.days} Days</strong></div>
+                          <div>• Fee reduction: <strong className="text-emerald-400">-{tier.rebate}% globally</strong></div>
                         </div>
                       </div>
 
                       <button
                         id={`btn-lock-tier-${tier.id}`}
                         onClick={() => handleLockVault(tier.id, tier.days, tier.rebate)}
-                        className={`w-full py-1.5 text-[10px] font-mono font-bold rounded-lg cursor-pointer transition ${
+                        className={`w-full py-2 text-[10px] font-sans font-bold rounded-xl cursor-pointer transition ${
                           feeDiscount >= tier.rebate 
                             ? 'bg-emerald-500 text-slate-950' 
-                            : 'bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800'
+                            : 'bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-850'
                         }`}
                       >
-                        {feeDiscount >= tier.rebate ? 'ACTIVE LOCK' : 'DEPOSIT & LOCK'}
+                        {feeDiscount >= tier.rebate ? 'Active Lock ✅' : 'Freeze & Lock NEX'}
                       </button>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl flex items-start gap-3 mt-6 text-xs text-slate-400">
+              <div className="p-4 bg-slate-900/20 border border-slate-900 rounded-2xl flex items-start gap-3 mt-6 text-xs text-slate-400">
                 <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-slate-300">Non-Custodial Fee Scaling Mathematics</p>
-                  <p className="mt-1 font-mono text-[10px] text-slate-400">
-                    Once locked, tokens are mathematically frozen by on-chain consensus. You can check expiration countdowns. Your current active rebate is: <strong className="text-emerald-400">{feeDiscount}% Global Reduction</strong>.
+                  <p className="font-bold text-slate-300 font-sans">Sovereign locked custody info</p>
+                  <p className="mt-1 font-sans text-[10px] text-slate-400">
+                    Your locked tokens stay 100% yours, they are just frozen safely. Your current active fee buffer discount is: <strong className="text-emerald-400">{feeDiscount}% Global Reduction</strong>.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* 30. Decay-Protected Crypto Time-Lock Safes */}
-            <div className="bg-slate-950/40 border border-slate-900/60 rounded-2xl p-6 flex flex-col justify-between">
+            {/* Impulse lock safe */}
+            <div className="bg-slate-950/40 border border-slate-900/60 rounded-3xl p-6 flex flex-col justify-between">
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-semibold font-mono tracking-wider text-slate-200 uppercase flex items-center gap-2">
+                  <h3 className="text-sm font-sans font-bold text-slate-200 uppercase flex items-center gap-1.5">
                     <Lock className="w-4 h-4 text-cyan-400" />
-                    Decay-Protected Safes
+                    Decay-Protected Impulse Safes 🔒
                   </h3>
                   <p className="text-xs font-sans text-slate-400 mt-1 leading-relaxed">
-                    Unbreachable cold storage safes designed to enforce strict self-discipline. Deposits remain physically unmovable until designated calendar milestones are hit.
+                    Need self-discipline? Lock some coins in this smart-contract lockbox. It physically blocks withdrawals until your target milestone date. The perfect tool to prevent emotional panic selling!
                   </p>
                 </div>
 
-                <form onSubmit={handleLockSafeSubmit} className="space-y-4 p-4 bg-slate-900/30 border border-slate-900 rounded-xl">
-                  <span className="text-[10px] font-mono text-slate-500 uppercase block">CREATE IMPULSE LOCKBOX</span>
+                <form onSubmit={handleLockSafeSubmit} className="space-y-4 p-4 bg-slate-900/20 border border-slate-900 rounded-2xl">
+                  <span className="text-[10px] font-sans text-slate-500 block font-bold uppercase">Setup lockbox</span>
                   
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 text-xs font-sans">
                     <div>
-                      <label className="text-[9px] font-mono text-slate-500 block uppercase">ASSET</label>
+                      <label className="text-[10px] text-slate-500 block uppercase font-bold mb-1">Coin to lock</label>
                       <select
                         id="select-safe-asset"
                         value={safeAsset}
                         onChange={(e) => setSafeAsset(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-900 rounded-lg p-1.5 text-xs text-white"
+                        className="w-full bg-slate-950 border border-slate-900 rounded-lg p-1.5 text-white"
                       >
                         <option value="SOL">SOL</option>
                         <option value="ETH">ETH</option>
@@ -1489,12 +1451,12 @@ export default function EarnView({
                       </select>
                     </div>
                     <div>
-                      <label className="text-[9px] font-mono text-slate-500 block uppercase">LOCK INTERVAL</label>
+                      <label className="text-[10px] text-slate-500 block uppercase font-bold mb-1">Lock time</label>
                       <select
                         id="select-safe-months"
                         value={safeMonths}
                         onChange={(e) => setSafeMonths(parseInt(e.target.value))}
-                        className="w-full bg-slate-950 border border-slate-900 rounded-lg p-1.5 text-xs text-white"
+                        className="w-full bg-slate-950 border border-slate-900 rounded-lg p-1.5 text-white"
                       >
                         <option value="3">3 Months</option>
                         <option value="6">6 Months</option>
@@ -1503,8 +1465,8 @@ export default function EarnView({
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-[9px] font-mono text-slate-500 block uppercase">AMOUNT</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-500 block uppercase font-bold">Amount to lock</label>
                     <div className="relative">
                       <input
                         id="input-safe-amount"
@@ -1512,44 +1474,43 @@ export default function EarnView({
                         placeholder="0.0"
                         value={safeAmount}
                         onChange={(e) => setSafeAmount(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2 py-1.5 text-xs text-white"
+                        className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2.5 py-1.5 text-xs text-white"
                       />
-                      <span className="absolute right-2 top-1.5 text-[10px] text-slate-500">{safeAsset}</span>
+                      <span className="absolute right-2 top-1.5 text-[10px] text-slate-500 font-bold">{safeAsset}</span>
                     </div>
                   </div>
 
                   <button
                     id="btn-confirm-safe-lock"
                     type="submit"
-                    className="w-full py-2 bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 text-xs font-mono font-bold rounded-lg transition"
+                    className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 text-xs font-sans font-bold rounded-xl transition"
                   >
-                    LOCK IN DECAY SAFE 🔒
+                    Lock coins securely 🔒
                   </button>
                 </form>
 
-                {/* Render active safes */}
                 <div className="space-y-3 pt-2">
-                  <span className="text-[10px] font-mono text-slate-500 uppercase block">ACTIVE SAFE CRYPTS</span>
+                  <span className="text-[10px] font-sans text-slate-500 uppercase font-bold block">My active safes</span>
                   {safes.map(safe => (
                     <div key={safe.id} className="p-3.5 bg-slate-950 border border-slate-900 rounded-xl flex items-center justify-between">
                       <div>
-                        <span className="text-xs font-bold text-white">{safe.amount} {safe.asset}</span>
-                        <div className="flex items-center gap-1.5 text-[9px] font-mono text-slate-500 mt-1">
+                        <span className="text-xs font-sans font-extrabold text-white">{safe.amount} {safe.asset}</span>
+                        <div className="flex items-center gap-1 text-[9px] font-sans text-slate-500 mt-1">
                           <Clock className="w-3 h-3 text-slate-500" />
-                          <span>Unlocks: {safe.unlockDate}</span>
+                          <span>Release date: {safe.unlockDate}</span>
                         </div>
                       </div>
 
                       <button
                         id={`btn-unlock-safe-${safe.id}`}
                         onClick={() => handleUnlockSafe(safe.id)}
-                        className={`px-2.5 py-1 text-[9px] font-mono rounded-md transition cursor-pointer ${
+                        className={`px-3 py-1 text-[9px] font-sans font-bold rounded-lg transition cursor-pointer ${
                           safe.status === 'locked' 
-                            ? 'bg-red-950/20 text-red-400 border border-red-900/40 hover:border-red-500' 
+                            ? 'bg-red-950/25 text-red-400 border border-red-900/40 hover:border-red-500' 
                             : 'bg-emerald-500 text-slate-950'
                         }`}
                       >
-                        {safe.status === 'locked' ? 'FORCE UNSTAKE' : 'CLAIM SPOT'}
+                        {safe.status === 'locked' ? 'TRY TO UNLOCK' : 'RECLAIM NOW'}
                       </button>
                     </div>
                   ))}
@@ -1559,7 +1520,7 @@ export default function EarnView({
           </motion.div>
         )}
 
-        {/* --- TAB 4: STRUCTURED DUALS & TAX-LOSS --- */}
+        {/* TAB 4: STRUCTURED DUALS & TAX-LOSS */}
         {activeTab === 'structured' && (
           <motion.div
             key="structured"
@@ -1568,67 +1529,66 @@ export default function EarnView({
             exit={{ opacity: 0, y: -10 }}
             className="grid grid-cols-1 lg:grid-cols-3 gap-6"
           >
-            {/* 24. Volatility-Hedging Dual Investment */}
-            <div className="lg:col-span-2 bg-slate-950/40 border border-slate-900/60 rounded-2xl p-6 flex flex-col justify-between">
+            <div className="lg:col-span-2 bg-slate-950/40 border border-slate-900/60 rounded-3xl p-6 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4 border-b border-slate-900 pb-3">
-                  <h3 className="text-sm font-semibold font-mono tracking-wider text-slate-200 uppercase flex items-center gap-2">
+                  <h3 className="text-sm font-sans font-bold text-slate-200 uppercase flex items-center gap-1.5">
                     <Layers className="w-4 h-4 text-cyan-400" />
-                    Volatility-Hedging Dual Investment Vehicles
+                    Dual-Payout Growth Contracts ⚖️
                   </h3>
-                  <span className="text-[10px] font-mono text-slate-500">STRUCTURED EXOTIC CONTRACTS</span>
+                  <span className="text-[10px] font-sans text-slate-400 font-bold uppercase">Hedged options</span>
                 </div>
 
                 <p className="text-xs font-sans text-slate-400 mb-6 leading-relaxed">
-                  Earn elevated interest products paid out in one of two separate assets depending on strike boundary settle prices at expiration. Hedging tools allow users to gain yield while locking spot boundaries.
+                  Dual growth contracts let you earn giant bonus APY rates. You deposit one asset, and at settlement, you receive your principal plus massive interest paid out in either USD cash or crypto, depending on price action. It is a fantastic win-win strategy for stable growth!
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <button
                     id="btn-dual-sol-low"
                     onClick={() => setDualSelectedProduct('SOL-LOW')}
-                    className={`p-4 rounded-xl text-left border cursor-pointer transition ${
+                    className={`p-4 rounded-2xl text-left border cursor-pointer transition ${
                       dualSelectedProduct === 'SOL-LOW' 
                         ? 'bg-slate-900 border-cyan-500/50' 
                         : 'bg-slate-950/60 border-slate-900'
                     }`}
                   >
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-bold text-white">SOL Buy Low Strike</span>
-                      <span className="text-[10px] font-mono text-emerald-400 font-bold">68.2% APY</span>
+                    <div className="flex justify-between items-center mb-2 font-sans">
+                      <span className="text-xs font-bold text-white">SOL Buy-Low Contract</span>
+                      <span className="text-[10px] text-emerald-400 font-bold">68.2% APY</span>
                     </div>
-                    <div className="space-y-1 text-[11px] font-mono text-slate-400">
-                      <div>• Strike Price: **$135.00 USDC**</div>
-                      <div>• Duration: **3 Days**</div>
-                      <div>• Principal Asset: **USDC**</div>
+                    <div className="space-y-1 text-[11px] font-sans text-slate-400">
+                      <div>• Price limit: <strong>$135.00 USDC</strong></div>
+                      <div>• Lock duration: <strong>3 Days</strong></div>
+                      <div>• You fund with: <strong>USDC Cash</strong></div>
                     </div>
                   </button>
 
                   <button
                     id="btn-dual-eth-high"
                     onClick={() => setDualSelectedProduct('ETH-HIGH')}
-                    className={`p-4 rounded-xl text-left border cursor-pointer transition ${
+                    className={`p-4 rounded-2xl text-left border cursor-pointer transition ${
                       dualSelectedProduct === 'ETH-HIGH' 
                         ? 'bg-slate-900 border-cyan-500/50' 
                         : 'bg-slate-950/60 border-slate-900'
                     }`}
                   >
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-bold text-white">ETH Sell High Strike</span>
-                      <span className="text-[10px] font-mono text-emerald-400 font-bold">84.5% APY</span>
+                    <div className="flex justify-between items-center mb-2 font-sans">
+                      <span className="text-xs font-bold text-white">ETH Sell-High Contract</span>
+                      <span className="text-[10px] text-emerald-400 font-bold">84.5% APY</span>
                     </div>
-                    <div className="space-y-1 text-[11px] font-mono text-slate-400">
-                      <div>• Strike Price: **$3,450.00 USDC**</div>
-                      <div>• Duration: **3 Days**</div>
-                      <div>• Principal Asset: **ETH**</div>
+                    <div className="space-y-1 text-[11px] font-sans text-slate-400">
+                      <div>• Price limit: <strong>$3,450.00 USDC</strong></div>
+                      <div>• Lock duration: <strong>3 Days</strong></div>
+                      <div>• You fund with: <strong>ETH Coins</strong></div>
                     </div>
                   </button>
                 </div>
 
-                <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl mt-6 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-mono text-slate-400">CAPITAL SUBSCRIPTION AMOUNT:</span>
-                    <span className="text-[10px] font-mono text-slate-500">Funding Source: {dualSelectedProduct === 'SOL-LOW' ? 'USDC' : 'ETH'}</span>
+                <div className="p-4 bg-slate-900/20 border border-slate-900 rounded-2xl mt-6 space-y-4">
+                  <div className="flex justify-between items-center text-xs font-sans font-bold">
+                    <span className="text-slate-400">Locked Capital investment:</span>
+                    <span className="text-slate-500">From wallet: {dualSelectedProduct === 'SOL-LOW' ? 'USDC' : 'ETH'}</span>
                   </div>
 
                   <div className="flex gap-2">
@@ -1636,94 +1596,93 @@ export default function EarnView({
                       <input
                         id="input-dual-amount"
                         type="number"
-                        placeholder="0.00"
                         value={dualSubAmount}
                         onChange={(e) => setDualSubAmount(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-900 rounded-lg px-2.5 py-1.5 text-xs text-white"
                       />
-                      <span className="absolute right-2.5 top-1.5 text-[10px] text-slate-500 font-mono">
+                      <span className="absolute right-2.5 top-1.5 text-[10px] text-slate-500 font-bold">
                         {dualSelectedProduct === 'SOL-LOW' ? 'USDC' : 'ETH'}
                       </span>
                     </div>
                     <button
                       id="btn-submit-dual"
                       onClick={handleSubscribeDual}
-                      className="px-4 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 text-xs font-mono font-bold rounded-lg transition"
+                      className="px-4 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 text-xs font-sans font-bold rounded-lg transition"
                     >
-                      Lock Dual Position
+                      Subscribe & Lock
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Simulation outcomes */}
+              {/* Settlement simulation lab */}
               {dualActiveSub && (
-                <div className="mt-6 p-4 bg-slate-950 border border-cyan-900/30 rounded-xl space-y-3">
-                  <span className="text-[10px] font-mono text-cyan-400 uppercase block">ACTIVE DUAL INVESTMENT SETTLEMENT LAB</span>
-                  <p className="text-xs text-slate-300 font-sans">
-                    You have staked **{dualActiveSub.amount} {dualActiveSub.underlying}** in the {dualActiveSub.asset} {dualActiveSub.type === 'low' ? 'Buy-Low' : 'Sell-High'} Pool. Fast-forward and settle:
+                <div className="mt-6 p-4 bg-slate-950 border border-cyan-900/30 rounded-2xl space-y-3">
+                  <span className="text-[10px] font-sans text-cyan-400 font-bold uppercase block">Dual contract settlement simulator</span>
+                  <p className="text-xs text-slate-300 font-sans leading-normal">
+                    You have locked **{dualActiveSub.amount} {dualActiveSub.underlying}** in the {dualActiveSub.asset} contract. Settle now to simulate price action:
                   </p>
 
                   <div className="flex gap-2">
                     <button
                       id="btn-settle-strike-hit"
                       onClick={() => handleSimulateDualExpiry('STRIKE_HIT')}
-                      className="flex-1 py-1.5 bg-red-950/40 border border-red-900/40 hover:border-red-500 text-red-400 text-[10px] font-mono rounded"
+                      className="flex-1 py-1.5 bg-red-950/30 border border-red-900/40 text-red-400 text-[10px] font-sans font-bold rounded-lg"
                     >
-                      Settle Inside Strike (Asset Converted)
+                      Trigger Target hit (Convert asset!)
                     </button>
                     <button
                       id="btn-settle-strike-missed"
                       onClick={() => handleSimulateDualExpiry('STRIKE_MISSED')}
-                      className="flex-1 py-1.5 bg-emerald-950/40 border border-emerald-900/40 hover:border-emerald-500 text-emerald-400 text-[10px] font-mono rounded"
+                      className="flex-1 py-1.5 bg-emerald-950/30 border border-emerald-900/40 text-emerald-400 text-[10px] font-sans font-bold rounded-lg"
                     >
-                      Settle Outside Strike (Keep Principal)
+                      Trigger Target missed (Keep principal + high APY)
                     </button>
                   </div>
                 </div>
               )}
 
               {dualSimulationOutcome && (
-                <div className="mt-4 p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-slate-300">
-                  <div className="text-emerald-400 font-bold mb-1">✓ CONTRACT CLEARED & ASSETS DISTRIBUTED:</div>
+                <div className="mt-4 p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs font-sans text-slate-300 leading-normal">
+                  <div className="text-emerald-400 font-bold mb-1">✓ Contract settles back to your Piggy bank:</div>
                   {dualSimulationOutcome}
                 </div>
               )}
             </div>
 
-            {/* 29. Tax-Loss Harvesting Diagnostic Panel */}
-            <div className="bg-slate-950/40 border border-slate-900/60 rounded-2xl p-6 flex flex-col justify-between">
+            {/* Tax loss harvester */}
+            <div className="bg-slate-950/40 border border-slate-900/60 rounded-3xl p-6 flex flex-col justify-between">
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-semibold font-mono tracking-wider text-slate-200 uppercase flex items-center gap-2">
+                  <h3 className="text-sm font-sans font-bold text-rose-400 uppercase flex items-center gap-1.5">
                     <ShieldAlert className="w-4 h-4 text-rose-400" />
-                    Tax-Loss Harvesting
+                    Tax-Savings Loss Harvester ⚖️
                   </h3>
                   <p className="text-xs font-sans text-slate-400 mt-1 leading-relaxed">
-                    Auto-scan open spots for underwater positions. Re-route liquid capital offset immediately to harvest tax deductions while preserving 100% exposure in derivative formats.
+                    Have some coins currently sitting on a paper loss? Our smart diagnostic closes those positions to register tax savings, then instantly moves them into corresponding liquid stAssets so you hold the exact same position with zero market loss!
                   </p>
                 </div>
 
                 <div className="space-y-3 pt-2">
-                  <span className="text-[10px] font-mono text-slate-500 uppercase block">UNDERWATER LEDGER DIAGNOSIS</span>
+                  <span className="text-[10px] font-sans text-slate-500 uppercase font-bold block">Paper Loss Diagnostics</span>
                   {underwaterPositions.map(pos => (
                     <div key={pos.id} className="p-3 bg-slate-900/30 border border-slate-900 rounded-xl flex justify-between items-center">
                       <div>
-                        <span className="text-xs font-bold text-white">{pos.asset} Spot Position</span>
-                        <div className="text-[9px] font-mono text-slate-500 mt-0.5">
-                          Buy: ${pos.buyPrice} • Current: ${pos.currentPrice}
+                        <span className="text-xs font-sans font-bold text-white">{pos.asset} Coin</span>
+                        <div className="text-[9px] font-sans text-slate-500 mt-0.5">
+                          Buy price: ${pos.buyPrice} • Now: ${pos.currentPrice}
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="text-xs font-bold text-rose-400 font-mono">{pos.lossUsd.toFixed(2)} USD</span>
-                        <span className="text-[9px] font-mono text-slate-500 block uppercase">Unrealized Loss</span>
+                        <span className="text-xs font-bold text-rose-400 font-mono">${Math.abs(pos.lossUsd).toFixed(2)} savings</span>
+                        <span className="text-[9px] font-sans text-slate-500 block">AVAILABLE HARVEST</span>
                       </div>
                     </div>
                   ))}
 
                   {underwaterPositions.length === 0 && (
-                    <div className="p-4 bg-emerald-950/10 border border-emerald-900/20 text-emerald-400 text-center rounded-xl text-xs font-mono">
-                      All positions aligned! No capital losses available to offset.
+                    <div className="p-4 bg-emerald-950/10 border border-emerald-900/20 text-emerald-400 text-center rounded-xl text-xs font-sans">
+                      Perfect state! No paper losses eligible for harvesting.
                     </div>
                   )}
                 </div>
@@ -1734,17 +1693,17 @@ export default function EarnView({
                   <button
                     id="btn-harvest-tax-losses"
                     onClick={handleExecuteTaxHarvest}
-                    className="w-full py-2 bg-rose-950/40 border border-rose-900/60 hover:border-rose-500 text-rose-400 text-xs font-mono rounded-lg transition"
+                    className="w-full py-2 bg-rose-950/45 border border-rose-900/50 hover:border-rose-500 text-rose-400 text-xs font-sans font-bold rounded-xl"
                   >
-                    CRYSTALLIZE TAX LOSSES & STAKE DERIVATIVES
+                    Claim $567.90 Tax Loss Offsets Now! ⚖️
                   </button>
                 )}
 
                 {taxHarvestLogs.length > 0 && (
-                  <div className="p-3 bg-slate-950 border border-slate-900 rounded-lg text-[9px] font-mono text-slate-400 space-y-1 max-h-40 overflow-y-auto">
+                  <div className="p-3.5 bg-slate-950 border border-slate-900 rounded-xl text-[10px] font-sans text-slate-400 space-y-1.5 max-h-40 overflow-y-auto">
                     {taxHarvestLogs.map((log, idx) => (
-                      <div key={idx} className="flex gap-1.5">
-                        <span className="text-rose-500">❯</span>
+                      <div key={idx} className="flex gap-1">
+                        <span className="text-rose-400 font-bold">❯</span>
                         <span>{log}</span>
                       </div>
                     ))}
@@ -1755,7 +1714,7 @@ export default function EarnView({
           </motion.div>
         )}
 
-        {/* --- TAB 5: ACADEMY & MICRO-DCA --- */}
+        {/* TAB 5: ACADEMY & DCA (LEARN & EARN & SPARE CHANGE) */}
         {activeTab === 'academy' && (
           <motion.div
             key="academy"
@@ -1764,19 +1723,19 @@ export default function EarnView({
             exit={{ opacity: 0, y: -10 }}
             className="grid grid-cols-1 lg:grid-cols-12 gap-6"
           >
-            {/* 28. Proof-of-Learn Knowledge Micro-Grants Portal */}
-            <div className="lg:col-span-7 bg-slate-950/40 border border-slate-900/60 rounded-2xl p-6 flex flex-col justify-between">
+            {/* Proof of Learn Academy */}
+            <div className="lg:col-span-7 bg-slate-950/40 border border-slate-900/60 rounded-3xl p-6 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4 border-b border-slate-900 pb-3">
-                  <h3 className="text-sm font-semibold font-mono tracking-wider text-slate-200 uppercase flex items-center gap-2">
-                    <GraduationCap className="w-4 h-4 text-emerald-400" />
-                    Proof-of-Learn Knowledge Micro-Grants
+                  <h3 className="text-sm font-sans font-bold text-slate-200 uppercase flex items-center gap-1.5">
+                    <GraduationCap className="w-4 h-4 text-emerald-400 animate-bounce" />
+                    Crypto Academy: Learn & Earn free Coins! 🎓
                   </h3>
-                  <span className="text-[10px] font-mono text-slate-500">EARN WHILE YOU DIGEST RULES</span>
+                  <span className="text-[10px] font-sans text-slate-400 font-bold">EDUCATION CENTER</span>
                 </div>
 
                 <p className="text-xs font-sans text-slate-400 mb-6 leading-relaxed">
-                  Earn micro-distributions of native platform exchange utility tokens (**NEX**) by reading curriculum material on blockchain finality, elliptic curves, and mathematical hedging models. Complete full-score quizzes to claim grant keys.
+                  Who said learning is dry? Review the mini-lessons below on how crypto and staking operate, take our simple multiple-choice quizzes, and grab free native **NEX** coins credited to your wallet instantly!
                 </p>
 
                 {activeCourseId === null ? (
@@ -1784,18 +1743,18 @@ export default function EarnView({
                     {courses.map((course) => (
                       <div 
                         key={course.id} 
-                        className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4"
+                        className="p-4 bg-slate-900/20 border border-slate-900 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4"
                       >
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-white">{course.title}</span>
+                            <span className="text-xs font-sans font-bold text-white">{course.title}</span>
                             {course.completed ? (
-                              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400 border border-emerald-900/30">
-                                COMPLETED
+                              <span className="text-[9px] font-sans px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-900/30 font-bold">
+                                CLAIMED ✅
                               </span>
                             ) : (
-                              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-400 border border-cyan-900/30">
-                                ACTIVE REWARD
+                              <span className="text-[9px] font-sans px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-900/30 font-bold">
+                                UNCLAIMED 🎁
                               </span>
                             )}
                           </div>
@@ -1806,189 +1765,167 @@ export default function EarnView({
 
                         <div className="flex items-center gap-4 justify-between md:justify-end border-t md:border-t-0 border-slate-900 pt-3 md:pt-0">
                           <div className="text-right">
-                            <span className="text-[9px] font-mono text-slate-500 block">GRANT</span>
-                            <span className="text-xs font-bold text-cyan-400 font-mono">{course.rewardNex} NEX</span>
+                            <span className="text-[9px] text-slate-500 block font-bold">REWARD</span>
+                            <span className="text-xs font-sans font-bold text-cyan-400">{course.rewardNex} NEX Coins</span>
                           </div>
 
                           <button
                             id={`btn-start-course-${course.id}`}
                             onClick={() => handleStartCourse(course.id)}
                             disabled={course.completed}
-                            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-mono rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-850 text-xs font-sans font-bold rounded-xl transition disabled:opacity-50"
                           >
-                            {course.completed ? 'CLAIMED' : 'START LESSON'}
+                            {course.completed ? 'Claimed' : 'Start Quiz!'}
                           </button>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  // Quiz Form UI
-                  <div className="p-5 bg-slate-900/40 border border-slate-850 rounded-xl space-y-4">
+                  // Quiz form
+                  <div className="p-5 bg-slate-900/30 border border-slate-850 rounded-2xl space-y-4">
                     {(() => {
-                      const activeCourse = courses.find(c => c.id === activeCourseId)!;
-                      const q = activeCourse.questions[currentQuestionIdx];
+                      const course = courses.find(c => c.id === activeCourseId);
+                      if (!course) return null;
+                      const currentQ = course.questions[currentQuestionIdx];
+
                       return (
                         <>
-                          <div className="flex justify-between items-center text-[10px] font-mono text-slate-500 pb-2 border-b border-slate-900">
-                            <span>LESSON {currentQuestionIdx + 1} OF {activeCourse.questions.length}</span>
-                            <span>COURSE: {activeCourse.title}</span>
+                          <div className="flex items-center justify-between border-b border-slate-900 pb-2 mb-2">
+                            <span className="text-[11px] font-sans text-cyan-400 font-bold">Lesson: {course.title}</span>
+                            <span className="text-[10px] text-slate-400">Question {currentQuestionIdx + 1} of {course.questions.length}</span>
                           </div>
 
-                          <h4 className="text-sm font-semibold text-white pt-1">
-                            {q.question}
-                          </h4>
+                          <p className="text-sm font-sans font-bold text-white leading-relaxed mt-2">
+                            {currentQ.question}
+                          </p>
 
                           <div className="space-y-2 mt-4">
-                            {q.options.map((option, idx) => (
+                            {currentQ.options.map((opt, i) => (
                               <button
-                                id={`quiz-option-${idx}`}
-                                key={idx}
-                                onClick={() => handleSelectOption(idx)}
-                                className={`w-full text-left p-3 rounded-lg border text-xs font-sans transition cursor-pointer ${
-                                  selectedQuizOption === idx 
-                                    ? 'bg-cyan-950/30 border-cyan-500/60 text-cyan-300' 
-                                    : 'bg-slate-950 border-slate-900 hover:border-slate-850 text-slate-400'
+                                key={i}
+                                type="button"
+                                onClick={() => handleSelectOption(i)}
+                                className={`w-full p-3 text-left text-xs font-sans font-semibold rounded-xl border transition ${
+                                  selectedQuizOption === i 
+                                    ? 'bg-cyan-950/40 border-cyan-500/70 text-cyan-300' 
+                                    : 'bg-slate-950 hover:bg-slate-900 border-slate-900 text-slate-300'
                                 }`}
                               >
-                                {option}
+                                {i + 1}. {opt}
                               </button>
                             ))}
                           </div>
 
-                          <div className="flex gap-2 justify-end mt-6">
-                            <button
-                              id="btn-quit-quiz"
-                              onClick={() => setActiveCourseId(null)}
-                              className="px-4 py-1.5 bg-slate-950 hover:bg-slate-900 text-slate-400 text-xs font-mono rounded-lg transition"
-                            >
-                              Quit Lessons
-                            </button>
-                            <button
-                              id="btn-next-question"
-                              onClick={handleNextQuizQuestion}
-                              disabled={selectedQuizOption === null}
-                              className="px-5 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 text-xs font-mono font-bold rounded-lg transition disabled:opacity-50"
-                            >
-                              {currentQuestionIdx === activeCourse.questions.length - 1 ? 'SUBMIT & GRAB GRANT' : 'NEXT STEP'}
-                            </button>
-                          </div>
+                          <button
+                            onClick={handleNextQuizQuestion}
+                            disabled={selectedQuizOption === null}
+                            className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-sans font-bold text-xs rounded-xl mt-4 disabled:opacity-30"
+                          >
+                            {currentQuestionIdx === course.questions.length - 1 ? 'Finish Lesson & Claim 🎓' : 'Next Question'}
+                          </button>
                         </>
                       );
                     })()}
                   </div>
                 )}
               </div>
-
-              <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl flex items-center gap-3 mt-6 text-xs text-slate-400">
-                <Info className="w-4 h-4 text-cyan-400 shrink-0" />
-                <span>Micro-grants are distributed directly from the Platform Ecosystem Growth Vault and settle in NEX immediately.</span>
-              </div>
             </div>
 
-            {/* 25. Micro-DCA Fiat Round-Ups */}
-            <div className="lg:col-span-5 bg-slate-950/40 border border-slate-900/60 rounded-2xl p-6 flex flex-col justify-between">
+            {/* Micro-DCA spare change rounded up */}
+            <div className="lg:col-span-5 bg-slate-950/40 border border-slate-900/60 rounded-3xl p-6 flex flex-col justify-between">
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-semibold font-mono tracking-wider text-slate-200 uppercase flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-cyan-400" />
-                    Micro-DCA Debit Round-Ups
+                  <h3 className="text-sm font-sans font-bold text-slate-200 uppercase flex items-center gap-1.5">
+                    <Compass className="w-4 h-4 text-cyan-400" />
+                    Spare Change Sweeper (Micro-DCA) 🧹
                   </h3>
                   <p className="text-xs font-sans text-slate-400 mt-1 leading-relaxed">
-                    Toggle automatic round-up rules mapping simulated daily payments. Transaction odd changes round up to the nearest dollar, automatically executing DCA purchases into selected asset pools.
+                    Automatically round up your small virtual transactions (like coffee or gas) to the nearest dollar, and pool the spare change into buying a crypto coin of your choice!
                   </p>
                 </div>
 
-                <div className="p-4 bg-slate-900/30 border border-slate-900 rounded-xl space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono text-slate-300">ROUND-UP SAVINGS PIPELINE</span>
+                <div className="p-4 bg-slate-900/20 border border-slate-900 rounded-2xl space-y-4">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-bold uppercase">Activate Sweeper:</span>
                     <button
-                      id="btn-toggle-dca"
                       onClick={() => setDcaEnabled(!dcaEnabled)}
-                      className={`px-3 py-1 rounded text-[10px] font-mono cursor-pointer ${
-                        dcaEnabled ? 'bg-emerald-500 text-slate-950 font-bold' : 'bg-slate-950 text-slate-400 border border-slate-900'
+                      className={`px-3 py-1 text-[10px] font-sans font-bold rounded-lg transition ${
+                        dcaEnabled ? 'bg-cyan-950 border border-cyan-800 text-cyan-400' : 'bg-slate-950 text-slate-500 border border-slate-900'
                       }`}
                     >
-                      {dcaEnabled ? 'ACTIVE' : 'DEACTIVATED'}
+                      {dcaEnabled ? 'Sweeper Active' : 'Off'}
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <label className="text-[9px] font-mono text-slate-500 uppercase block">Purchase Target Asset</label>
-                      <select
-                        id="select-dca-target"
-                        value={dcaTargetAsset}
-                        onChange={(e) => setDcaTargetAsset(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-900 rounded-lg p-1.5 text-white mt-1"
-                      >
-                        <option value="SOL">SOL</option>
-                        <option value="ETH">ETH</option>
-                        <option value="NEX">NEX</option>
-                      </select>
-                    </div>
+                  {dcaEnabled && (
+                    <div className="space-y-3 pt-2 border-t border-slate-900/60">
+                      <div className="grid grid-cols-2 gap-2 text-xs font-sans">
+                        <div>
+                          <label className="text-[10px] text-slate-500 block uppercase font-bold mb-1">Target coin</label>
+                          <select
+                            id="select-dca-asset"
+                            value={dcaTargetAsset}
+                            onChange={(e) => setDcaTargetAsset(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-900 rounded-lg p-1.5 text-white"
+                          >
+                            <option value="SOL">SOL</option>
+                            <option value="ETH">ETH</option>
+                            <option value="NEX">NEX</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 block uppercase font-bold mb-1">Multiplier multiplier</label>
+                          <select
+                            id="select-dca-mult"
+                            value={dcaMultiplier}
+                            onChange={(e) => setDcaMultiplier(parseInt(e.target.value))}
+                            className="w-full bg-slate-950 border border-slate-900 rounded-lg p-1.5 text-white"
+                          >
+                            <option value="1">1x (Normal spare change)</option>
+                            <option value="2">2x (Double change)</option>
+                            <option value="5">5x (Mega-Multiplier!)</option>
+                          </select>
+                        </div>
+                      </div>
 
-                    <div>
-                      <label className="text-[9px] font-mono text-slate-500 uppercase block">Multiplier Scale</label>
-                      <select
-                        id="select-dca-multiplier"
-                        value={dcaMultiplier}
-                        onChange={(e) => setDcaMultiplier(parseInt(e.target.value))}
-                        className="w-full bg-slate-950 border border-slate-900 rounded-lg p-1.5 text-white mt-1"
-                      >
-                        <option value="1">1x (Standard)</option>
-                        <option value="2">2x Boost</option>
-                        <option value="5">5x Max speed</option>
-                      </select>
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={triggerSimulatedCardSpend}
+                          className="w-full py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 text-xs font-sans font-bold rounded-xl transition border border-slate-850"
+                        >
+                          Simulate Cafe debit Card Spend ☕
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
-                {/* Simulated debit card panel */}
-                <div className="border border-slate-900 bg-slate-950/60 p-4 rounded-xl space-y-3">
-                  <div className="flex justify-between items-center pb-2 border-b border-slate-900 text-[10px] font-mono text-slate-500">
-                    <span>SIMULATED PAYMENT STREAM</span>
-                    <button 
-                      id="btn-swipe-debit-card"
-                      onClick={triggerSimulatedCardSpend}
-                      className="text-cyan-400 hover:text-cyan-300 cursor-pointer"
-                    >
-                      Swipe Simulated Card ❯
-                    </button>
-                  </div>
-
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                <div className="space-y-2">
+                  <span className="text-[10px] font-sans text-slate-500 uppercase font-bold block">Recent Rounded Up spends</span>
+                  <div className="space-y-1.5">
                     {simTransactions.map(tx => (
-                      <div key={tx.id} className="flex justify-between items-center text-[11px] font-mono">
+                      <div key={tx.id} className="p-3 bg-slate-950 border border-slate-900 rounded-xl flex justify-between items-center text-xs font-sans">
                         <div>
-                          <span className="text-slate-300 block">{tx.merchant}</span>
-                          <span className="text-slate-500">${tx.cost.toFixed(2)} cost</span>
+                          <span className="font-bold text-white">{tx.merchant}</span>
+                          <span className="text-[10px] text-slate-500 block">Transaction cost: ${tx.cost.toFixed(2)}</span>
                         </div>
                         <div className="text-right">
-                          <span className="text-cyan-400 font-bold block">+${(tx.roundup * dcaMultiplier).toFixed(2)}</span>
-                          <span className="text-[9px] text-slate-500">DCA amount</span>
+                          <span className="text-cyan-400 font-bold font-mono">+${(tx.roundup * dcaMultiplier).toFixed(2)}</span>
+                          <span className="text-[9px] text-slate-500 block uppercase font-bold">Swept to DCA</span>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
-
-              <div className="pt-4">
-                <button
-                  id="btn-dca-convert"
-                  onClick={executeDcaPurchase}
-                  disabled={accumulatedDcaUsdc <= 0}
-                  className="w-full py-2.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 text-xs font-mono font-bold rounded-xl transition disabled:opacity-50"
-                >
-                  EXECUTE DCA PURCHASE (${accumulatedDcaUsdc.toFixed(2)} USDC) ⚡
-                </button>
-              </div>
             </div>
           </motion.div>
         )}
 
       </AnimatePresence>
+
     </div>
   );
 }
