@@ -1016,9 +1016,14 @@ export default function App() {
                 <EarnView
                   assets={assets}
                   balances={balances}
+                  setBalances={setBalances}
                   stakedBalances={stakedBalances}
+                  setStakedBalances={setStakedBalances}
                   onStake={handleStake}
                   onUnstake={handleUnstake}
+                  onNotification={triggerNotification}
+                  feeDiscount={feeDiscount}
+                  setFeeDiscount={setFeeDiscount}
                 />
               )}
 
