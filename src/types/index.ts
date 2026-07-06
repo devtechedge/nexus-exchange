@@ -84,3 +84,60 @@ export interface ApiKey {
   };
   createdAt: string;
 }
+
+export interface LeaderboardTrader {
+  id: string;
+  alias: string;
+  verifiedRoi: number;
+  level: string;
+  copiersCount: number;
+  riskScore: number;
+  isZkVerified: boolean;
+  portfolioDistribution: { [key: string]: number };
+}
+
+export interface TradeSignalStrategy {
+  id: string;
+  title: string;
+  provider: string;
+  description: string;
+  priceNex: number;
+  upvotes: number;
+  reputationScore: number;
+  reputationLevel: string;
+  accuracy: number;
+  isSubscribed?: boolean;
+}
+
+export interface SovereignGuild {
+  id: string;
+  name: string;
+  membersCount: number;
+  totalCapital: number;
+  userShare: number;
+  consensusDistribution: { [key: string]: number };
+  activeProposal?: {
+    id: string;
+    title: string;
+    proposedAction: string;
+    votesYes: number;
+    votesNo: number;
+    userVoted?: 'yes' | 'no';
+    expiresAt: string;
+  };
+}
+
+export interface P2PLoan {
+  id: string;
+  borrower: string;
+  lender?: string;
+  amount: number;
+  collateralAsset: string;
+  collateralAmount: number;
+  collateralRatio: number;
+  apy: number;
+  status: 'available' | 'active' | 'completed' | 'liquidated';
+  marginCallThreshold: number;
+  durationDays: number;
+}
+

@@ -21,6 +21,7 @@ import TradingView from './components/TradingView';
 import EarnView from './components/EarnView';
 import SecurityView from './components/SecurityView';
 import DeveloperDocs from './components/DeveloperDocs';
+import SocialView from './components/SocialView';
 
 // Helper to generate initial sparklines
 const makeSparkline = (base: number, length: number = 10, variance: number = 0.05) => {
@@ -112,6 +113,10 @@ export default function App() {
   // Risk & Volatility state
   const [circuitBreakerArmed, setCircuitBreakerArmed] = useState(true);
   const [circuitBreakerPercent, setCircuitBreakerPercent] = useState(2.5);
+
+  // Fee discount & Theme accent states
+  const [feeDiscount, setFeeDiscount] = useState(0);
+  const [activeAccentColor, setActiveAccentColor] = useState('cyan');
 
   // Transactions ledger
   const [transactions, setTransactions] = useState<Transaction[]>([
@@ -629,7 +634,9 @@ export default function App() {
     price: number
   ) => {
     const cost = amount * price;
-    const fee = cost * 0.005;
+    const baseFee = cost * 0.005;
+    const discountFactor = 1 - (feeDiscount / 100);
+    const fee = baseFee * discountFactor;
     const totalCost = cost + fee;
 
     if (type === 'market') {
@@ -712,7 +719,9 @@ export default function App() {
     };
 
     const totalCost = orderData.amount! * orderData.price!;
-    const fee = totalCost * 0.005;
+    const baseFee = totalCost * 0.005;
+    const discountFactor = 1 - (feeDiscount / 100);
+    const fee = baseFee * discountFactor;
 
     if (orderData.side === 'buy') {
       setBalances(prev => ({ ...prev, USDC: prev['USDC'] - (totalCost + fee) }));
@@ -1026,6 +1035,19 @@ export default function App() {
                   apiKeys={apiKeys}
                   onCreateKey={handleCreateApiKey}
                   onRevokeKey={handleRevokeApiKey}
+                />
+              )}
+
+              {activeTab === 'social' && (
+                <SocialView
+                  assets={assets}
+                  balances={balances}
+                  setBalances={setBalances}
+                  onNotification={triggerNotification}
+                  feeDiscount={feeDiscount}
+                  setFeeDiscount={setFeeDiscount}
+                  activeAccentColor={activeAccentColor}
+                  setActiveAccentColor={setActiveAccentColor}
                 />
               )}
             </motion.div>

@@ -4,6 +4,7 @@ import {
   LayoutDashboard, 
   ArrowLeftRight, 
   TrendingUp, 
+  Users,
   Fingerprint, 
   Code, 
   LogOut, 
@@ -27,6 +28,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, onSignOut, usdB
     { id: 'dashboard', label: 'Terminal Dashboard', icon: LayoutDashboard },
     { id: 'trade', label: 'Advanced Trade Desk', icon: ArrowLeftRight },
     { id: 'earn', label: 'Staking & Yields', icon: TrendingUp },
+    { id: 'social', label: 'Sovereign Social', icon: Users },
     { id: 'security', label: 'KYC & 2FA Security', icon: Fingerprint },
     { id: 'developer', label: 'Developer Gateway', icon: Code },
   ];
