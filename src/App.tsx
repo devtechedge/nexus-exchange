@@ -13,7 +13,7 @@ import {
   Bell
 } from 'lucide-react';
 
-import { User, Asset, Transaction, ActiveOrder, ApiKey } from './types';
+import { User, Asset, Transaction, ActiveOrder, ApiKey, GridBot } from './types';
 import AuthView from './components/AuthView';
 import Sidebar from './components/Sidebar';
 import DashboardView from './components/DashboardView';
@@ -34,7 +34,7 @@ const makeSparkline = (base: number, length: number = 10, variance: number = 0.0
 };
 
 // Simple ID Generator
-let idCounter = 100;
+let idCounter = 1000;
 const generateId = () => {
   idCounter++;
   return `tx-${idCounter}`;
@@ -46,13 +46,17 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [notifications, setNotifications] = useState<{ id: string; type: 'success' | 'error' | 'info'; text: string }[]>([]);
 
-  // Balances
+  // Balances including fractional dust and native token NEX
   const [balances, setBalances] = useState<{ [key: string]: number }>({
     USDC: 15420.50,
     SOL: 45.22,
     ETH: 1.84,
     LINK: 110.00,
     DOT: 240.00,
+    DOGE: 2.50, // Dust token 1 (<$1.00 USD)
+    ADA: 1.20,  // Dust token 2 (<$1.00 USD)
+    UNI: 0.05,  // Dust token 3 (<$1.00 USD)
+    NEX: 0.00,  // Native token (pre-sweep)
   });
 
   // Staked balances
@@ -69,6 +73,10 @@ export default function App() {
     ETH: 3240.10,
     LINK: 16.85,
     DOT: 6.45,
+    DOGE: 0.1524,
+    ADA: 0.4182,
+    UNI: 7.1420,
+    NEX: 0.5000,
     USDC: 1.00,
   });
 
@@ -78,8 +86,32 @@ export default function App() {
     ETH: -1.15,
     LINK: 0.45,
     DOT: 11.40,
+    DOGE: 1.25,
+    ADA: -2.14,
+    UNI: 0.95,
+    NEX: 12.44,
     USDC: 0.00,
   });
+
+  // Active Grid Trading Bots
+  const [gridBots, setGridBots] = useState<GridBot[]>([
+    {
+      id: 'grid-1',
+      symbol: 'SOL',
+      lowerPrice: 130.00,
+      upperPrice: 160.00,
+      gridCount: 8,
+      investmentAmount: 1000.00,
+      active: true,
+      profitEarned: 24.50,
+      createdAt: new Date(Date.now() - 3600 * 24 * 1000).toLocaleDateString(),
+      gridLevels: [],
+    }
+  ]);
+
+  // Risk & Volatility state
+  const [circuitBreakerArmed, setCircuitBreakerArmed] = useState(true);
+  const [circuitBreakerPercent, setCircuitBreakerPercent] = useState(2.5);
 
   // Transactions ledger
   const [transactions, setTransactions] = useState<Transaction[]>([
@@ -110,7 +142,7 @@ export default function App() {
     }
   ]);
 
-  // Active orders
+  // Active orders queue
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([
     {
       id: 'order-1',
@@ -128,23 +160,309 @@ export default function App() {
   // Api Keys
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
 
-  // Simulation of live price ticking (fluctuate prices slightly every 3 seconds)
+  // Simulation of live price ticking & algorithmic order execution engine
   useEffect(() => {
     const interval = setInterval(() => {
+      let solDropDetected = false;
+      let lastSolPrice = 0;
+      let nextSolPrice = 0;
+
+      // 1. Tick Prices
       setSpotPrices((prev) => {
         const next = { ...prev };
+        lastSolPrice = prev['SOL'];
+
         Object.keys(next).forEach((symbol) => {
           if (symbol !== 'USDC') {
-            const pct = (Math.random() - 0.5) * 0.002; // ±0.1% fluctuation
+            const pct = (Math.random() - 0.5) * 0.003; // ±0.15% fluctuation
             next[symbol] = parseFloat((next[symbol] * (1 + pct)).toFixed(4));
           }
         });
+
+        nextSolPrice = next['SOL'];
+        // Detect sudden crash
+        if (nextSolPrice < lastSolPrice * 0.96) {
+          solDropDetected = true;
+        }
+
         return next;
       });
+
+      // 2. Scan and Match Active Orders using high-fidelity rules
+      setActiveOrders((prevOrders) => {
+        if (prevOrders.length === 0) return prevOrders;
+
+        const updatedOrders: ActiveOrder[] = [];
+
+        prevOrders.forEach((order) => {
+          const currentPrice = spotPrices[order.symbol] || order.price;
+
+          // A. Volatility Circuit Breaker Trigger
+          if (circuitBreakerArmed && order.symbol === 'SOL' && solDropDetected) {
+            // Cancel and refund
+            const refundCost = order.amount * order.price;
+            const fee = refundCost * 0.005;
+            if (order.side === 'buy') {
+              setBalances(b => ({ ...b, USDC: b['USDC'] + refundCost + fee }));
+            } else {
+              setBalances(b => ({ ...b, [order.symbol]: b[order.symbol] + order.amount }));
+            }
+            triggerNotification('error', `⚡ CIRCUIT BREAKER TRIPPED! Drops exceeded ${circuitBreakerPercent}%. Order ${order.id} cancelled safely.`);
+            return; // Order removed
+          }
+
+          // B. Normal Limit matching
+          if (order.type === 'limit') {
+            const isMatch = order.side === 'buy' ? currentPrice <= order.price : currentPrice >= order.price;
+            if (isMatch) {
+              if (order.side === 'buy') {
+                setBalances(b => ({ ...b, [order.symbol]: (b[order.symbol] || 0) + order.amount }));
+              } else {
+                const proceeds = order.amount * order.price - (order.amount * order.price * 0.005);
+                setBalances(b => ({ ...b, USDC: b['USDC'] + proceeds }));
+              }
+
+              setTransactions(txs => [
+                {
+                  id: generateId(),
+                  type: order.side,
+                  asset: order.symbol,
+                  amount: order.amount,
+                  price: order.price,
+                  status: 'completed',
+                  timestamp: new Date().toLocaleTimeString(),
+                },
+                ...txs
+              ]);
+
+              triggerNotification('success', `Limit order filled: ${order.side.toUpperCase()} ${order.amount} ${order.symbol} at $${order.price.toFixed(2)}`);
+              return;
+            }
+          }
+
+          // C. TWAP & Iceberg incremental slice execution
+          if (order.type === 'twap' || order.type === 'iceberg') {
+            const totalChunks = order.twapTotalChunks || 5;
+            const filledChunks = (order.twapFilledChunks || 0) + 1;
+            const chunkAmount = order.amount / totalChunks;
+            const chunkCost = chunkAmount * currentPrice;
+            const chunkFee = chunkCost * 0.005;
+
+            // Execute single slice
+            if (order.side === 'buy') {
+              setBalances(b => ({
+                ...b,
+                [order.symbol]: (b[order.symbol] || 0) + chunkAmount
+              }));
+            } else {
+              const proceeds = chunkCost - chunkFee;
+              setBalances(b => ({
+                ...b,
+                USDC: b['USDC'] + proceeds
+              }));
+            }
+
+            // Post slice trade in ledger
+            setTransactions(txs => [
+              {
+                id: generateId(),
+                type: order.side,
+                asset: order.symbol,
+                amount: chunkAmount,
+                price: currentPrice,
+                status: 'completed',
+                timestamp: new Date().toLocaleTimeString(),
+                note: `Algorithmic ${order.type.toUpperCase()} slice execution ${filledChunks}/${totalChunks}`,
+              },
+              ...txs
+            ]);
+
+            if (filledChunks >= totalChunks) {
+              triggerNotification('success', `🎉 Algorithmic ${order.type.toUpperCase()} fully filled: ${order.amount} ${order.symbol} consolidated.`);
+              return; // Removed
+            } else {
+              updatedOrders.push({
+                ...order,
+                twapFilledChunks: filledChunks,
+              });
+              triggerNotification('info', `Executed ${order.type.toUpperCase()} chunk ${filledChunks}/${totalChunks} for ${chunkAmount.toFixed(4)} ${order.symbol}`);
+              return;
+            }
+          }
+
+          // D. VWAP Target Depth execution
+          if (order.type === 'vwap') {
+            if (Math.random() > 0.7) { // Simulated volume sweep match
+              if (order.side === 'buy') {
+                setBalances(b => ({ ...b, [order.symbol]: (b[order.symbol] || 0) + order.amount }));
+              } else {
+                const proceeds = order.amount * currentPrice - (order.amount * currentPrice * 0.005);
+                setBalances(b => ({ ...b, USDC: b['USDC'] + proceeds }));
+              }
+
+              setTransactions(txs => [
+                {
+                  id: generateId(),
+                  type: order.side,
+                  asset: order.symbol,
+                  amount: order.amount,
+                  price: currentPrice,
+                  status: 'completed',
+                  timestamp: new Date().toLocaleTimeString(),
+                  note: 'VWAP Institutional Liquidity Wave',
+                },
+                ...txs
+              ]);
+
+              triggerNotification('success', `VWAP execution succeeded: Consolidated ${order.amount} ${order.symbol} at optimal volume depth.`);
+              return;
+            }
+          }
+
+          // E. Trailing Stop-Loss Protection
+          if (order.type === 'trailing-stop') {
+            const stopPct = order.trailingStopPercent || 2.5;
+            let highest = order.trailingHighestPrice || currentPrice;
+
+            if (currentPrice > highest) {
+              highest = currentPrice;
+            }
+
+            const stopLevel = highest * (1 - stopPct / 100);
+            if (currentPrice <= stopLevel) {
+              // Volatility protected stop level reached! Trigger market Sell
+              const proceeds = order.amount * currentPrice - (order.amount * currentPrice * 0.005);
+              setBalances(b => ({
+                ...b,
+                USDC: b['USDC'] + proceeds
+              }));
+
+              setTransactions(txs => [
+                {
+                  id: generateId(),
+                  type: 'sell',
+                  asset: order.symbol,
+                  amount: order.amount,
+                  price: currentPrice,
+                  status: 'completed',
+                  timestamp: new Date().toLocaleTimeString(),
+                  note: `Trailing Stop-Loss Executed (ATR cushion adjusted)`,
+                },
+                ...txs
+              ]);
+
+              triggerNotification('error', `🚨 Trailing Stop-Loss triggered! Protected position. Sold ${order.amount} ${order.symbol} @ $${currentPrice.toFixed(2)}`);
+              return;
+            } else {
+              updatedOrders.push({
+                ...order,
+                trailingHighestPrice: highest,
+              });
+              return;
+            }
+          }
+
+          // F. Bracket (OCO) Take-Profit & Stop-Loss triggers
+          if (order.type === 'bracket') {
+            const tp = order.bracketTakeProfit || 999999;
+            const sl = order.bracketStopLoss || 0;
+
+            if (currentPrice >= tp) {
+              const proceeds = order.amount * tp - (order.amount * tp * 0.005);
+              setBalances(b => ({
+                ...b,
+                [order.symbol]: (b[order.symbol] || 0) + (order.side === 'buy' ? order.amount : 0),
+                USDC: b['USDC'] + (order.side === 'sell' ? proceeds : 0),
+              }));
+
+              setTransactions(txs => [
+                {
+                  id: generateId(),
+                  type: order.side,
+                  asset: order.symbol,
+                  amount: order.amount,
+                  price: tp,
+                  status: 'completed',
+                  timestamp: new Date().toLocaleTimeString(),
+                  note: 'Bracket Take Profit Leg Filled (OCO)',
+                },
+                ...txs
+              ]);
+
+              triggerNotification('success', `📈 Bracket OCO: Take Profit filled @ $${tp.toFixed(2)}! SL cancelled.`);
+              return;
+            } else if (currentPrice <= sl) {
+              const proceeds = order.amount * sl - (order.amount * sl * 0.005);
+              setBalances(b => ({
+                ...b,
+                [order.symbol]: (b[order.symbol] || 0) + (order.side === 'buy' ? order.amount : 0),
+                USDC: b['USDC'] + (order.side === 'sell' ? proceeds : 0),
+              }));
+
+              setTransactions(txs => [
+                {
+                  id: generateId(),
+                  type: order.side,
+                  asset: order.symbol,
+                  amount: order.amount,
+                  price: sl,
+                  status: 'completed',
+                  timestamp: new Date().toLocaleTimeString(),
+                  note: 'Bracket Stop Loss Leg Filled (OCO)',
+                },
+                ...txs
+              ]);
+
+              triggerNotification('error', `📉 Bracket OCO: Stop Loss executed @ $${sl.toFixed(2)}! TP cancelled.`);
+              return;
+            }
+          }
+
+          // Default
+          updatedOrders.push(order);
+        });
+
+        return updatedOrders;
+      });
+
+      // 3. Tick active Grid Bot positions and compound simulated yields
+      setGridBots((prevBots) => {
+        return prevBots.map((bot) => {
+          if (!bot.active) return bot;
+
+          // 25% chance of volatility trigger inside range bounds
+          if (Math.random() > 0.75) {
+            const yieldGained = 1.80 + Math.random() * 2.20;
+            setBalances(b => ({ ...b, USDC: b['USDC'] + yieldGained }));
+
+            setTransactions(txs => [
+              {
+                id: generateId(),
+                type: 'buy',
+                asset: bot.symbol,
+                amount: bot.investmentAmount / bot.gridCount / (spotPrices[bot.symbol] || 100),
+                price: spotPrices[bot.symbol] || 100,
+                status: 'completed',
+                timestamp: new Date().toLocaleTimeString(),
+                note: `Grid Level Arbitrage Match • +$${yieldGained.toFixed(2)} USDC profit`,
+              },
+              ...txs
+            ]);
+
+            return {
+              ...bot,
+              profitEarned: bot.profitEarned + yieldGained
+            };
+          }
+
+          return bot;
+        });
+      });
+
     }, 3000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [spotPrices, circuitBreakerArmed, circuitBreakerPercent]);
 
   // Sync balances and prices to get dynamic USD Valuation
   const assets: Asset[] = useMemo(() => {
@@ -184,6 +502,44 @@ export default function App() {
         balance: balances['DOT'] || 0,
         staked: stakedBalances['DOT'] || 0,
         sparkline: makeSparkline(spotPrices['DOT'], 12, 0.06),
+      },
+      // Dust Tokens
+      {
+        symbol: 'DOGE',
+        name: 'Dogecoin',
+        price: spotPrices['DOGE'],
+        change24h: change24h['DOGE'],
+        balance: balances['DOGE'] || 0,
+        staked: 0,
+        sparkline: makeSparkline(spotPrices['DOGE'], 12, 0.08),
+      },
+      {
+        symbol: 'ADA',
+        name: 'Cardano',
+        price: spotPrices['ADA'],
+        change24h: change24h['ADA'],
+        balance: balances['ADA'] || 0,
+        staked: 0,
+        sparkline: makeSparkline(spotPrices['ADA'], 12, 0.05),
+      },
+      {
+        symbol: 'UNI',
+        name: 'Uniswap',
+        price: spotPrices['UNI'],
+        change24h: change24h['UNI'],
+        balance: balances['UNI'] || 0,
+        staked: 0,
+        sparkline: makeSparkline(spotPrices['UNI'], 12, 0.04),
+      },
+      // Native Platform Token
+      {
+        symbol: 'NEX',
+        name: 'Nexus Native',
+        price: spotPrices['NEX'],
+        change24h: change24h['NEX'],
+        balance: balances['NEX'] || 0,
+        staked: 0,
+        sparkline: makeSparkline(spotPrices['NEX'], 12, 0.09),
       },
       {
         symbol: 'USDC',
@@ -239,6 +595,32 @@ export default function App() {
     }
   };
 
+  const handleCreateApiKey = (name: string, perms: { read: boolean; trade: boolean; withdraw: boolean }) => {
+    const keyId = `key-${Math.floor(Math.random() * 10000)}`;
+    const newKey: ApiKey = {
+      id: keyId,
+      name,
+      key: `nx_live_pk_${Math.floor(Math.random() * 1e10)}cba`,
+      secret: `nx_live_sk_${Math.floor(Math.random() * 1e12)}abcde••••••••`,
+      permissions: perms,
+      createdAt: new Date().toLocaleDateString(),
+    };
+
+    setApiKeys(prev => [newKey, ...prev]);
+    triggerNotification('success', `Minted API access key: ${name}`);
+  };
+
+  const handleRevokeApiKey = (id: string) => {
+    setApiKeys(prev => prev.filter(k => k.id !== id));
+    triggerNotification('info', 'API key credentials revoked.');
+  };
+
+  const handleTriggerQuickTrade = (symbol: string, action: 'buy' | 'sell') => {
+    setActiveTab('trade');
+    triggerNotification('info', `Switched to Trade Desk for ${symbol}`);
+  };
+
+  // Trade Executor
   const handleExecuteTrade = (
     symbol: string,
     side: 'buy' | 'sell',
@@ -268,7 +650,6 @@ export default function App() {
         triggerNotification('success', `Successfully sold ${amount} ${symbol} for $${proceeds.toFixed(2)}`);
       }
 
-      // Add to transactions ledger
       setTransactions(prev => [
         {
           id: generateId(),
@@ -282,7 +663,6 @@ export default function App() {
         ...prev
       ]);
     } else {
-      // Limit order logic (add to active queue)
       const newOrder: ActiveOrder = {
         id: `limit-${Math.floor(Math.random() * 10000)}`,
         symbol,
@@ -295,7 +675,6 @@ export default function App() {
         timestamp: new Date().toLocaleTimeString(),
       };
       
-      // Lock funds in escrow if buying
       if (side === 'buy') {
         setBalances(prev => ({ ...prev, USDC: prev['USDC'] - totalCost }));
       } else {
@@ -307,11 +686,114 @@ export default function App() {
     }
   };
 
+  // Algorithmic order creation handler
+  const handleExecuteAlgoOrder = (orderData: Partial<ActiveOrder>) => {
+    const newOrder: ActiveOrder = {
+      id: `algo-${Math.floor(Math.random() * 10000)}`,
+      symbol: orderData.symbol!,
+      type: orderData.type!,
+      side: orderData.side!,
+      amount: orderData.amount!,
+      price: orderData.price!,
+      filled: 0,
+      status: 'open',
+      timestamp: new Date().toLocaleTimeString(),
+      twapTotalChunks: orderData.twapTotalChunks,
+      twapFilledChunks: orderData.twapFilledChunks,
+      twapIntervalSeconds: orderData.twapIntervalSeconds,
+      twapLastTriggerTime: orderData.twapLastTriggerTime,
+      icebergDisclosedPercent: orderData.icebergDisclosedPercent,
+      vwapTargetVolumeDepth: orderData.vwapTargetVolumeDepth,
+      trailingStopPercent: orderData.trailingStopPercent,
+      trailingHighestPrice: orderData.trailingHighestPrice,
+      trailingActivationPrice: orderData.trailingActivationPrice,
+      bracketTakeProfit: orderData.bracketTakeProfit,
+      bracketStopLoss: orderData.bracketStopLoss,
+    };
+
+    const totalCost = orderData.amount! * orderData.price!;
+    const fee = totalCost * 0.005;
+
+    if (orderData.side === 'buy') {
+      setBalances(prev => ({ ...prev, USDC: prev['USDC'] - (totalCost + fee) }));
+    } else {
+      setBalances(prev => ({ ...prev, [orderData.symbol!]: prev[orderData.symbol!] - orderData.amount! }));
+    }
+
+    setActiveOrders(prev => [newOrder, ...prev]);
+    triggerNotification('success', `Locked strategy in algorithmic pipeline: ${orderData.type?.toUpperCase()} on ${orderData.symbol}`);
+  };
+
+  // Grid bot operations
+  const handleStartGridBot = (botData: Omit<GridBot, 'id' | 'createdAt' | 'profitEarned'>) => {
+    setBalances(prev => ({
+      ...prev,
+      USDC: prev['USDC'] - botData.investmentAmount
+    }));
+
+    const newBot: GridBot = {
+      ...botData,
+      id: `grid-${Math.floor(Math.random() * 10000)}`,
+      createdAt: new Date().toLocaleDateString(),
+      profitEarned: 0,
+    };
+
+    setGridBots(prev => [newBot, ...prev]);
+    triggerNotification('success', `Initialized ${botData.symbol} High-Frequency Grid Trading Bot!`);
+  };
+
+  const handleStopGridBot = (id: string) => {
+    const bot = gridBots.find(b => b.id === id);
+    if (!bot) return;
+
+    const totalRefund = bot.investmentAmount + bot.profitEarned;
+    setBalances(prev => ({
+      ...prev,
+      USDC: prev['USDC'] + totalRefund
+    }));
+
+    setGridBots(prev => prev.map(b => b.id === id ? { ...b, active: false } : b));
+    triggerNotification('info', `Grid bot stopped. Liquidated range positions. Refunded $${totalRefund.toFixed(2)} to wallet.`);
+  };
+
+  // Micro-Asset Dust Sweeper execution handler
+  const handleSweepDust = (symbols: string[]) => {
+    let totalValue = 0;
+    const nextBalances = { ...balances };
+
+    symbols.forEach(symbol => {
+      const balance = nextBalances[symbol] || 0;
+      const price = spotPrices[symbol] || 0;
+      totalValue += balance * price;
+      nextBalances[symbol] = 0; // Swept
+    });
+
+    const nexOutput = totalValue / 0.50; // NEX price is $0.50
+    nextBalances['NEX'] = (nextBalances['NEX'] || 0) + nexOutput;
+
+    setBalances(nextBalances);
+
+    setTransactions(prev => [
+      {
+        id: generateId(),
+        type: 'swap',
+        asset: symbols.join('+'),
+        amount: 1,
+        targetAsset: 'NEX',
+        targetAmount: nexOutput,
+        status: 'completed',
+        timestamp: new Date().toLocaleTimeString(),
+      },
+      ...prev
+    ]);
+
+    triggerNotification('success', `Micro-Asset dust swept! Minted +${nexOutput.toFixed(4)} NEX tokens into primary wallet.`);
+  };
+
   const handleCancelOrder = (id: string) => {
     const order = activeOrders.find(o => o.id === id);
     if (!order) return;
 
-    // Refund locked escrow funds
     const refundCost = order.amount * order.price;
     const fee = refundCost * 0.005;
     if (order.side === 'buy') {
@@ -321,7 +803,7 @@ export default function App() {
     }
 
     setActiveOrders(prev => prev.filter(o => o.id !== id));
-    triggerNotification('info', 'Limit order cancelled and escrow refunded.');
+    triggerNotification('info', 'Active order cancelled and escrow fully refunded.');
   };
 
   const handleExecuteSwap = (fromSymbol: string, toSymbol: string, fromAmount: number, toAmount: number) => {
@@ -386,30 +868,23 @@ export default function App() {
     triggerNotification('success', `Unstaked ${amount} ${symbol} liquid tokens back to wallet.`);
   };
 
-  const handleCreateApiKey = (name: string, perms: { read: boolean; trade: boolean; withdraw: boolean }) => {
-    const keyId = `key-${Math.floor(Math.random() * 10000)}`;
-    const newKey: ApiKey = {
-      id: keyId,
-      name,
-      key: `nx_live_pk_${Math.floor(Math.random() * 1e10)}cba`,
-      secret: `nx_live_sk_${Math.floor(Math.random() * 1e12)}abcde••••••••`,
-      permissions: perms,
-      createdAt: new Date().toLocaleDateString(),
-    };
-
-    setApiKeys(prev => [newKey, ...prev]);
-    triggerNotification('success', `Minted API access key: ${name}`);
+  const handleToggleCircuitBreaker = (armed: boolean, percent: number) => {
+    setCircuitBreakerArmed(armed);
+    setCircuitBreakerPercent(percent);
+    triggerNotification('info', armed 
+      ? `Volatility Circuit Breaker ARMED at ${percent}% threshold.` 
+      : 'Volatility Circuit Breaker DISARMED. Warning: Downside unprotected.'
+    );
   };
 
-  const handleRevokeApiKey = (id: string) => {
-    setApiKeys(prev => prev.filter(k => k.id !== id));
-    triggerNotification('info', 'API key credentials revoked.');
-  };
-
-  const handleTriggerQuickTrade = (symbol: string, action: 'buy' | 'sell') => {
-    setActiveTab('trade');
-    // We can pass quick trade details by updating internal state or letting user use the preselected tab
-    triggerNotification('info', `Switched to Trade Desk for ${symbol}`);
+  const handleTriggerPanic = () => {
+    triggerNotification('error', '⚠️ PANIC MODE ACTIVATED: Simulated high-frequency price drop initiated!');
+    
+    // Simulate high volatility tick on SOL (drop by 15% rapidly)
+    setSpotPrices(prev => ({
+      ...prev,
+      SOL: parseFloat((prev['SOL'] * 0.82).toFixed(4))
+    }));
   };
 
   // If user is not logged in, render the Auth Page
@@ -505,6 +980,7 @@ export default function App() {
                   transactions={transactions} 
                   onTriggerQuickTrade={handleTriggerQuickTrade}
                   usdBalance={totalUsdBalance}
+                  onSweepDust={handleSweepDust}
                 />
               )}
 
@@ -516,6 +992,14 @@ export default function App() {
                   onExecuteSwap={handleExecuteSwap}
                   activeOrders={activeOrders}
                   onCancelOrder={handleCancelOrder}
+                  onExecuteAlgoOrder={handleExecuteAlgoOrder}
+                  gridBots={gridBots}
+                  onStartGridBot={handleStartGridBot}
+                  onStopGridBot={handleStopGridBot}
+                  circuitBreakerArmed={circuitBreakerArmed}
+                  circuitBreakerPercent={circuitBreakerPercent}
+                  onToggleCircuitBreaker={handleToggleCircuitBreaker}
+                  onTriggerPanic={handleTriggerPanic}
                 />
               )}
 

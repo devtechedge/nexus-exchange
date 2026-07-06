@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -11,7 +11,14 @@ import {
   Wallet,
   Activity,
   PlusCircle,
-  ArrowRight
+  ArrowRight,
+  Sparkles,
+  Check,
+  CheckSquare,
+  Square,
+  RefreshCw,
+  Info,
+  ShieldAlert
 } from 'lucide-react';
 import { Asset, Transaction } from '../types';
 
@@ -20,14 +27,68 @@ interface DashboardViewProps {
   transactions: Transaction[];
   onTriggerQuickTrade: (symbol: string, action: 'buy' | 'sell') => void;
   usdBalance: number;
+  onSweepDust: (symbols: string[]) => void;
 }
 
 type Timeframe = '1H' | '1D' | '1W' | '1M' | '1Y' | 'ALL';
 
-export default function DashboardView({ assets, transactions, onTriggerQuickTrade, usdBalance }: DashboardViewProps) {
+export default function DashboardView({ assets, transactions, onTriggerQuickTrade, usdBalance, onSweepDust }: DashboardViewProps) {
   const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>('1W');
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; value: number; label: string } | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
+
+  // Dust Sweeper State
+  const [showDustModal, setShowDustModal] = useState(false);
+  const [selectedDustSymbols, setSelectedDustSymbols] = useState<string[]>([]);
+  const [isSweeping, setIsSweeping] = useState(false);
+  const [sweepSuccess, setSweepSuccess] = useState(false);
+
+  // Identify dust assets: balance > 0 and valuation < $1.00 USD, and NOT USDC/NEX
+  const dustAssets = useMemo(() => {
+    return assets.filter(asset => {
+      const val = asset.balance * asset.price;
+      return asset.balance > 0 && val < 1.00 && asset.symbol !== 'USDC' && asset.symbol !== 'NEX';
+    });
+  }, [assets]);
+
+  // Sync selected dust checkbox list on modal open
+  useEffect(() => {
+    if (showDustModal) {
+      setSelectedDustSymbols(dustAssets.map(a => a.symbol));
+      setSweepSuccess(false);
+    }
+  }, [showDustModal, dustAssets]);
+
+  const totalDustValue = useMemo(() => {
+    return dustAssets
+      .filter(a => selectedDustSymbols.includes(a.symbol))
+      .reduce((sum, a) => sum + (a.balance * a.price), 0);
+  }, [dustAssets, selectedDustSymbols]);
+
+  // Standard rate: $0.50 per NEXUS (NEX)
+  const nexOutputAmount = totalDustValue / 0.50;
+
+  const handleToggleDust = (symbol: string) => {
+    setSelectedDustSymbols(prev => 
+      prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol]
+    );
+  };
+
+  const handleSweepAction = () => {
+    if (selectedDustSymbols.length === 0) return;
+    setIsSweeping(true);
+
+    // Simulate matrix sweeping delay
+    setTimeout(() => {
+      onSweepDust(selectedDustSymbols);
+      setIsSweeping(false);
+      setSweepSuccess(true);
+      setTimeout(() => {
+        setShowDustModal(false);
+        setSweepSuccess(false);
+      }, 1500);
+    }, 2000);
+  };
 
   // Generate mock chart data based on timeframe
   const chartData = useMemo(() => {
@@ -473,7 +534,19 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
           <div>
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-sans font-semibold text-slate-300">Portfolio Distribution</span>
-              <span className="text-[10px] font-mono text-slate-500 uppercase">Available Assets</span>
+              <div className="flex items-center gap-2">
+                {dustAssets.length > 0 && (
+                  <button
+                    id="dust-sweeper-trigger"
+                    onClick={() => setShowDustModal(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 border border-amber-500/30 text-amber-400 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer shadow-sm shadow-amber-950/10 animate-pulse"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    SWEEP DUST ({dustAssets.length})
+                  </button>
+                )}
+                <span className="text-[10px] font-mono text-slate-500 uppercase">Available Assets</span>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -599,6 +672,126 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
           </div>
         )}
       </div>
+
+      {/* Micro-Asset Dust Sweeper Matrix Modal Overlay */}
+      <AnimatePresence>
+        {showDustModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: 'spring', duration: 0.4 }}
+              className="w-full max-w-lg bg-[#030712] border border-slate-800 rounded-2xl overflow-hidden shadow-2xl relative"
+            >
+              <div className="p-5 border-b border-slate-900 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-400 animate-spin" style={{ animationDuration: '3s' }} />
+                  <h3 className="text-sm font-sans font-bold text-white tracking-wide">Micro-Asset Dust Sweeper Matrix</h3>
+                </div>
+                <button
+                  onClick={() => setShowDustModal(false)}
+                  className="p-1 hover:bg-slate-900 text-slate-400 hover:text-white rounded-lg transition"
+                >
+                  <Clock className="w-4 h-4 rotate-45" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                  The sweeper scans your clearing sub-wallets for trailing, fractional balances under <span className="text-white font-mono">$1.00 valuation</span> and consolidates them into standard **NEX** (Nexus Utility Token) in a single decentralized atomic transaction.
+                </p>
+
+                {sweepSuccess ? (
+                  <div className="py-8 text-center space-y-3.5">
+                    <div className="mx-auto w-12 h-12 bg-emerald-950/40 border border-emerald-900 rounded-full flex items-center justify-center">
+                      <Check className="w-6 h-6 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-sans font-bold text-white uppercase tracking-wider">Atomic Consolidation Succeeded</h4>
+                      <p className="text-[11px] font-mono text-slate-500 mt-1">Minted +{nexOutputAmount.toFixed(4)} NEX tokens into your primary wallet.</p>
+                    </div>
+                  </div>
+                ) : isSweeping ? (
+                  <div className="py-10 text-center space-y-4">
+                    <RefreshCw className="w-8 h-8 text-amber-400 animate-spin mx-auto" />
+                    <div>
+                      <p className="text-xs font-mono text-slate-300">Sweeping {selectedDustSymbols.length} fractional assets...</p>
+                      <p className="text-[10px] font-mono text-slate-500 mt-1">Executing gasless AMM aggregation on Nexus Router</p>
+                    </div>
+                  </div>
+                ) : dustAssets.length === 0 ? (
+                  <div className="py-6 text-center text-slate-500 text-xs font-mono">
+                    No trailing dust balances detected inside this account.
+                  </div>
+                ) : (
+                  <>
+                    <div className="border border-slate-900 bg-slate-950/40 rounded-xl overflow-hidden max-h-48 overflow-y-auto divide-y divide-slate-900/50">
+                      {dustAssets.map(asset => {
+                        const val = asset.balance * asset.price;
+                        const isSelected = selectedDustSymbols.includes(asset.symbol);
+
+                        return (
+                          <div
+                            key={asset.symbol}
+                            onClick={() => handleToggleDust(asset.symbol)}
+                            className="p-3 flex items-center justify-between hover:bg-slate-900/30 transition-all cursor-pointer select-none"
+                          >
+                            <div className="flex items-center gap-3">
+                              {isSelected ? (
+                                <CheckSquare className="w-4 h-4 text-amber-500 shrink-0" />
+                              ) : (
+                                <Square className="w-4 h-4 text-slate-700 shrink-0" />
+                              )}
+                              <div className="flex flex-col">
+                                <span className="text-xs font-sans font-bold text-white tracking-wider">{asset.symbol}</span>
+                                <span className="text-[9px] font-mono text-slate-500">{asset.name}</span>
+                              </div>
+                            </div>
+
+                            <div className="text-right flex flex-col font-mono text-[11px]">
+                              <span className="text-slate-300">{asset.balance.toFixed(6)}</span>
+                              <span className="text-[9px] text-slate-500">${val.toFixed(4)} USD</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-slate-950/60 border border-slate-900 rounded-xl text-xs font-mono">
+                      <div>
+                        <span className="text-slate-500 uppercase text-[9px]">Total Value Swept</span>
+                        <p className="text-sm font-bold text-white mt-0.5">${totalDustValue.toFixed(4)} USD</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 uppercase text-[9px]">Estimated NEX Output</span>
+                        <p className="text-sm font-bold text-amber-400 mt-0.5">+{nexOutputAmount.toFixed(4)} NEX</p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-amber-950/10 border border-amber-900/30 rounded-xl flex gap-2 text-[10px] leading-relaxed font-sans text-amber-400">
+                      <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold">Zero-Fee Liquidation SLA</span>
+                        <p className="mt-0.5 font-mono text-[9px] text-amber-400/80">Decentralized dust sweepers are fully subsidized by Nexus protocol treasuries. Zero slippage or gas commissions will be levied on this trade.</p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleSweepAction}
+                      disabled={selectedDustSymbols.length === 0}
+                      className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-slate-950 font-sans font-bold text-xs rounded-xl transition tracking-wide cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <Sparkles className="w-4 h-4 text-slate-950" />
+                      SWEEP {selectedDustSymbols.length} ASSETS TO NEXUS (NEX)
+                    </button>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
