@@ -38,6 +38,7 @@ interface SocialViewProps {
   setFeeDiscount: React.Dispatch<React.SetStateAction<number>>;
   activeAccentColor: string;
   setActiveAccentColor: (color: string) => void;
+  triggerQuestCompletion?: (questId: string) => void;
 }
 
 export default function SocialView({
@@ -48,7 +49,8 @@ export default function SocialView({
   feeDiscount,
   setFeeDiscount,
   activeAccentColor,
-  setActiveAccentColor
+  setActiveAccentColor,
+  triggerQuestCompletion
 }: SocialViewProps) {
   // --- SUB-TAB SECTIONS ---
   const [activeSubTab, setActiveSubTab] = useState<'leaderboards' | 'signals' | 'backtest' | 'lending' | 'macro' | 'achievements'>('leaderboards');
@@ -174,6 +176,9 @@ export default function SocialView({
           setTraders(prev => prev.map(t => t.id === traderId ? { ...t, isZkVerified: true } : t));
           onNotification('success', `ZK Proof completed! Verified ROI authenticity.`);
           unlockBadge('zk-sovereign');
+          if (triggerQuestCompletion) {
+            triggerQuestCompletion('zk-proof');
+          }
         }
       }, (index + 1) * 750);
     });

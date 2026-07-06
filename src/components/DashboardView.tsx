@@ -23,6 +23,9 @@ import {
   Coins
 } from 'lucide-react';
 import { Asset, Transaction } from '../types';
+import QuestLog from './gamified/QuestLog';
+import SpinWheel from './gamified/SpinWheel';
+import AvatarCustomizer from './gamified/AvatarCustomizer';
 
 interface DashboardViewProps {
   assets: Asset[];
@@ -30,23 +33,70 @@ interface DashboardViewProps {
   onTriggerQuickTrade: (symbol: string, action: 'buy' | 'sell') => void;
   usdBalance: number;
   onSweepDust: (symbols: string[]) => void;
+  userXp: number;
+  userLevel: number;
+  streakDays: number;
+  selectedAvatar: string;
+  setSelectedAvatar: (avatar: string) => void;
+  completedQuests: string[];
+  triggerQuestCompletion: (questId: string) => void;
+  completedLessons: string[];
+  onCompleteLesson: (lessonId: string, rewardType: 'USDC' | 'NEX', rewardAmt: number, xpReward: number) => void;
+  onNotification: (type: 'success' | 'error' | 'info', text: string) => void;
+  onWinReward: (type: 'USDC' | 'NEX' | 'XP', amount: number, label: string) => void;
 }
 
 type Timeframe = '1H' | '1D' | '1W' | '1M' | '1Y' | 'ALL';
 
-export default function DashboardView({ assets, transactions, onTriggerQuickTrade, usdBalance, onSweepDust }: DashboardViewProps) {
+export default function DashboardView({ 
+  assets, 
+  transactions, 
+  onTriggerQuickTrade, 
+  usdBalance, 
+  onSweepDust,
+  userXp,
+  userLevel,
+  streakDays,
+  selectedAvatar,
+  setSelectedAvatar,
+  completedQuests,
+  triggerQuestCompletion,
+  completedLessons,
+  onCompleteLesson,
+  onNotification,
+  onWinReward
+}: DashboardViewProps) {
   const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>('1W');
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; value: number; label: string } | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
+
+  // --- BATCH 1: GAMIFIED TRAINING HUB & PLAYGROUND LOCAL STATES ---
+  const [playgroundTab, setPlaygroundTab] = useState<'quests' | 'wheel' | 'avatar'>('quests');
+
+  const questsList = useMemo(() => {
+    return [
+      { id: 'deposit', title: 'Top Up Your Piggy Bank 🐷', desc: 'Add or win some play dollars in your digital balance.', xpReward: 100, tokenReward: 0, isCompleted: completedQuests.includes('deposit') },
+      { id: 'star', title: 'Favorite Your Coins ⭐', desc: 'Star at least one digital coin in your Watchlist.', xpReward: 50, tokenReward: 0, isCompleted: completedQuests.includes('star') },
+      { id: 'trade', title: 'Make Your First Move 📈', desc: 'Buy or swap any coin to start practicing.', xpReward: 150, tokenReward: 0, isCompleted: completedQuests.includes('trade') },
+      { id: 'stake', title: 'Plant Some Coins 🌱', desc: 'Put some coins to grow in the Staking Garden.', xpReward: 125, tokenReward: 0, isCompleted: completedQuests.includes('stake') },
+      { id: 'clara', title: 'Chat With Clara 🐹', desc: 'Open up and consult Clara the helpful Hamster.', xpReward: 50, tokenReward: 0, isCompleted: completedQuests.includes('clara') },
+      { id: 'dev-key', title: 'Unlock Developer Mode 🔑', desc: 'Create your first automated developer API key.', xpReward: 80, tokenReward: 0, isCompleted: completedQuests.includes('dev-key') },
+      { id: 'zk-proof', title: 'Cryptographic ROI Verification 🛡️', desc: 'Solve a math proof to verify leaderboard standings.', xpReward: 200, tokenReward: 0, isCompleted: completedQuests.includes('zk-proof') },
+    ];
+  }, [completedQuests]);
 
   // Sparkly Starred Watchlist Favorites State
   const [starredCoins, setStarredCoins] = useState<string[]>(['BTC', 'ETH', 'SOL']);
 
   const handleToggleStar = (symbol: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setStarredCoins(prev => 
-      prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol]
-    );
+    setStarredCoins(prev => {
+      const next = prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol];
+      if (next.length > prev.length) {
+        triggerQuestCompletion('star');
+      }
+      return next;
+    });
   };
 
   // Dust Sweeper State
@@ -704,6 +754,102 @@ export default function DashboardView({ assets, transactions, onTriggerQuickTrad
             })}
           </div>
         )}
+      </div>
+
+      {/* Nexus Gamified Practice Playground 🏆 */}
+      <div id="nexus-gamified-playground" className="p-6 bg-slate-950/40 border border-slate-900 rounded-3xl backdrop-blur-md space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-900 pb-4 gap-4">
+          <div className="text-left">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🏆</span>
+              <h2 className="text-sm font-sans font-bold text-white uppercase tracking-wider">Nexus Novice Practice Playground & Training Center</h2>
+            </div>
+            <p className="text-xs font-sans text-slate-400 mt-1 leading-relaxed">
+              Complete quests, take quick quizzes to learn blockchain fundamentals, spin the practice wheel, and customize your trading mascot!
+            </p>
+          </div>
+
+          {/* Tab selectors */}
+          <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-900 self-start md:self-auto shrink-0">
+            <button
+              id="playground-tab-quests"
+              onClick={() => setPlaygroundTab('quests')}
+              className={`px-3 py-1.5 text-xs font-sans font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                playgroundTab === 'quests' ? 'bg-slate-850 text-cyan-400 shadow-md' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              📝 Quests & Lessons
+            </button>
+            <button
+              id="playground-tab-wheel"
+              onClick={() => setPlaygroundTab('wheel')}
+              className={`px-3 py-1.5 text-xs font-sans font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                playgroundTab === 'wheel' ? 'bg-slate-850 text-emerald-400 shadow-md' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              🎡 Practice Spin-Wheel
+            </button>
+            <button
+              id="playground-tab-avatar"
+              onClick={() => setPlaygroundTab('avatar')}
+              className={`px-3 py-1.5 text-xs font-sans font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                playgroundTab === 'avatar' ? 'bg-slate-850 text-purple-400 shadow-md' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              🎨 Mascot Customizer
+            </button>
+          </div>
+        </div>
+
+        <AnimatePresence mode="wait">
+          {playgroundTab === 'quests' && (
+            <motion.div
+              key="quests-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <QuestLog
+                userXp={userXp}
+                userLevel={userLevel}
+                quests={questsList}
+                completedLessons={completedLessons}
+                onCompleteLesson={onCompleteLesson}
+                onNotification={onNotification}
+              />
+            </motion.div>
+          )}
+
+          {playgroundTab === 'wheel' && (
+            <motion.div
+              key="wheel-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="max-w-xl mx-auto"
+            >
+              <SpinWheel
+                onWinReward={onWinReward}
+                onNotification={onNotification}
+              />
+            </motion.div>
+          )}
+
+          {playgroundTab === 'avatar' && (
+            <motion.div
+              key="avatar-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <AvatarCustomizer
+                currentAvatar={selectedAvatar}
+                userLevel={userLevel}
+                onSelectAvatar={setSelectedAvatar}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Micro-Asset Dust Sweeper Matrix Modal Overlay */}

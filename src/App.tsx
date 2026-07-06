@@ -22,6 +22,8 @@ import EarnView from './components/EarnView';
 import SecurityView from './components/SecurityView';
 import DeveloperDocs from './components/DeveloperDocs';
 import SocialView from './components/SocialView';
+import Confetti from './components/gamified/Confetti';
+import ClaraBuddy from './components/gamified/ClaraBuddy';
 
 // Helper to generate initial sparklines
 const makeSparkline = (base: number, length: number = 10, variance: number = 0.05) => {
@@ -118,6 +120,59 @@ export default function App() {
   const [feeDiscount, setFeeDiscount] = useState(0);
   const [activeAccentColor, setActiveAccentColor] = useState('cyan');
 
+  // --- BATCH 1: GAMIFIED LEARNING & ONBOARDING GLOBAL STATES ---
+  const [userXp, setUserXp] = useState<number>(150);
+  const [userLevel, setUserLevel] = useState<number>(1);
+  const [streakDays, setStreakDays] = useState<number>(3); // Fun 3-day starting streak!
+  const [selectedAvatar, setSelectedAvatar] = useState<string>('piggy');
+  const [completedQuests, setCompletedQuests] = useState<string[]>([]);
+  const [completedLessons, setCompletedLessons] = useState<string[]>([]);
+  const [confettiActive, setConfettiActive] = useState<boolean>(false);
+
+  // Helper function to award XP with beautiful leveling checks and sparkles
+  const awardXp = (amount: number, reason: string) => {
+    setUserXp((prevXp) => {
+      const nextXp = prevXp + amount;
+      const targetXp = userLevel * 500;
+      if (nextXp >= targetXp) {
+        setUserLevel((prevLvl) => {
+          const nextLvl = prevLvl + 1;
+          setConfettiActive(true);
+          // Let's defer triggerNotification inside a set timeout to avoid render-cycle alerts
+          setTimeout(() => {
+            triggerNotification('success', `🌟 LEVEL UP! You reached Level ${nextLvl}! Unlocked new custom mascot avatars!`);
+          }, 100);
+          return nextLvl;
+        });
+        return nextXp - targetXp;
+      }
+      setTimeout(() => {
+        triggerNotification('success', `✨ +${amount} XP: ${reason}`);
+      }, 100);
+      return nextXp;
+    });
+  };
+
+  // Helper function to trigger quest completion
+  const triggerQuestCompletion = (questId: string) => {
+    setCompletedQuests((prev) => {
+      if (prev.includes(questId)) return prev;
+      
+      let xpReward = 50;
+      let reason = '';
+      if (questId === 'deposit') { xpReward = 100; reason = 'Completed Quest: Top up your Piggy Bank!'; }
+      else if (questId === 'star') { xpReward = 50; reason = 'Completed Quest: Explore different Coins (Star Watchlist)!'; }
+      else if (questId === 'trade') { xpReward = 150; reason = 'Completed Quest: Acquire your first Coin!'; }
+      else if (questId === 'stake') { xpReward = 125; reason = 'Completed Quest: Save & Grow!'; }
+      else if (questId === 'dev-key') { xpReward = 80; reason = 'Completed Quest: Enter Developer Mode!'; }
+      else if (questId === 'zk-proof') { xpReward = 200; reason = 'Completed Quest: Cryptographic Sovereign ROI Verification!'; }
+      else if (questId === 'clara') { xpReward = 50; reason = 'Completed Quest: Chat with Clara the Mascot Hamster!'; }
+
+      awardXp(xpReward, reason);
+      return [...prev, questId];
+    });
+  };
+
   // Transactions ledger
   const [transactions, setTransactions] = useState<Transaction[]>([
     {
@@ -164,6 +219,19 @@ export default function App() {
 
   // Api Keys
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+
+  // Automated reactive hooks for Quest completion check
+  useEffect(() => {
+    if (balances.USDC > 0) {
+      triggerQuestCompletion('deposit');
+    }
+  }, [balances.USDC]);
+
+  useEffect(() => {
+    if (apiKeys.length > 0) {
+      triggerQuestCompletion('dev-key');
+    }
+  }, [apiKeys]);
 
   // Simulation of live price ticking & algorithmic order execution engine
   useEffect(() => {
@@ -669,6 +737,7 @@ export default function App() {
         },
         ...prev
       ]);
+      triggerQuestCompletion('trade');
     } else {
       const newOrder: ActiveOrder = {
         id: `limit-${Math.floor(Math.random() * 10000)}`,
@@ -690,6 +759,7 @@ export default function App() {
 
       setActiveOrders(prev => [newOrder, ...prev]);
       triggerNotification('info', `Limit order queue updated: ${side.toUpperCase()} ${amount} ${symbol} @ $${price.toFixed(2)}`);
+      triggerQuestCompletion('trade');
     }
   };
 
@@ -837,6 +907,7 @@ export default function App() {
     ]);
 
     triggerNotification('success', `Swapped ${fromAmount} ${fromSymbol} to ${toAmount.toFixed(4)} ${toSymbol}`);
+    triggerQuestCompletion('trade');
   };
 
   const handleStake = (symbol: string, amount: number) => {
@@ -856,6 +927,7 @@ export default function App() {
     ]);
 
     triggerNotification('success', `Locked ${amount} ${symbol} into high-yield staking pool.`);
+    triggerQuestCompletion('stake');
   };
 
   const handleUnstake = (symbol: string, amount: number) => {
@@ -904,6 +976,12 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#020617] text-white font-sans antialiased overflow-x-hidden">
       
+      {/* Level-Up Celebration Sparkles Confetti */}
+      <Confetti active={confettiActive} onComplete={() => setConfettiActive(false)} />
+
+      {/* Clara the helpful crypto hamster mascot chatbot */}
+      <ClaraBuddy onNotification={triggerNotification} onTriggerQuestCompletion={triggerQuestCompletion} />
+      
       {/* Sidebar Layout */}
       <Sidebar 
         activeTab={activeTab} 
@@ -911,6 +989,10 @@ export default function App() {
         user={user} 
         onSignOut={handleSignOut}
         usdBalance={totalUsdBalance}
+        userLevel={userLevel}
+        userXp={userXp}
+        selectedAvatar={selectedAvatar}
+        streakDays={streakDays}
       />
 
       {/* Main Content Layout Container */}
@@ -990,6 +1072,34 @@ export default function App() {
                   onTriggerQuickTrade={handleTriggerQuickTrade}
                   usdBalance={totalUsdBalance}
                   onSweepDust={handleSweepDust}
+                  userXp={userXp}
+                  userLevel={userLevel}
+                  streakDays={streakDays}
+                  selectedAvatar={selectedAvatar}
+                  setSelectedAvatar={setSelectedAvatar}
+                  completedQuests={completedQuests}
+                  triggerQuestCompletion={triggerQuestCompletion}
+                  completedLessons={completedLessons}
+                  onCompleteLesson={(lessonId, rewardType, rewardAmt, xpReward) => {
+                    setCompletedLessons((prev) => [...prev, lessonId]);
+                    setBalances((prev) => ({
+                      ...prev,
+                      [rewardType]: (prev[rewardType] || 0) + rewardAmt,
+                    }));
+                    awardXp(xpReward, `Completed Lesson Quiz!`);
+                  }}
+                  onNotification={triggerNotification}
+                  onWinReward={(type, amount, label) => {
+                    setBalances((prev) => ({
+                      ...prev,
+                      [type]: (prev[type] || 0) + amount,
+                    }));
+                    if (type === 'XP') {
+                      awardXp(amount, `Practice Wheel of Fortune!`);
+                    } else {
+                      awardXp(50, `Won ${label} on Wheel!`);
+                    }
+                  }}
                 />
               )}
 
@@ -1053,6 +1163,7 @@ export default function App() {
                   setFeeDiscount={setFeeDiscount}
                   activeAccentColor={activeAccentColor}
                   setActiveAccentColor={setActiveAccentColor}
+                  triggerQuestCompletion={triggerQuestCompletion}
                 />
               )}
             </motion.div>

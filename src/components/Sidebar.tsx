@@ -21,9 +21,23 @@ interface SidebarProps {
   user: User;
   onSignOut: () => void;
   usdBalance: number;
+  userLevel?: number;
+  userXp?: number;
+  selectedAvatar?: string;
+  streakDays?: number;
 }
 
-export default function Sidebar({ activeTab, setActiveTab, user, onSignOut, usdBalance }: SidebarProps) {
+export default function Sidebar({ 
+  activeTab, 
+  setActiveTab, 
+  user, 
+  onSignOut, 
+  usdBalance,
+  userLevel = 1,
+  userXp = 150,
+  selectedAvatar = 'piggy',
+  streakDays = 3
+}: SidebarProps) {
   const menuItems = [
     { id: 'dashboard', label: 'My Home Dashboard', icon: LayoutDashboard },
     { id: 'trade', label: 'Buy, Sell & Swap Center', icon: ArrowLeftRight },
@@ -94,9 +108,40 @@ export default function Sidebar({ activeTab, setActiveTab, user, onSignOut, usdB
 
       {/* Footer Profile & Sign Out */}
       <div className="p-4 border-t border-slate-900">
+        
+        {/* Dynamic Levels & Streak Status */}
+        <div className="px-3 py-2.5 mb-3 bg-slate-900/30 border border-slate-900 rounded-2xl space-y-2 text-left">
+          <div className="flex justify-between items-center text-[10px] font-sans font-bold text-slate-400">
+            <span className="text-cyan-400 flex items-center gap-1">Level {userLevel} Practicer</span>
+            <span className="text-amber-400">🔥 {streakDays}-Day!</span>
+          </div>
+          
+          {/* Level progress bar */}
+          <div className="relative w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-900/50">
+            <div 
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all duration-300"
+              style={{ width: `${(userXp / (userLevel * 500)) * 100}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-[8px] font-mono text-slate-500">
+            <span>{userXp} / {userLevel * 500} XP</span>
+            <span>Next Mascot at L{userLevel + 1}</span>
+          </div>
+        </div>
+
         <div className="flex items-center gap-2.5 p-2 mb-3 bg-slate-900/20 border border-transparent hover:border-slate-900 rounded-xl transition duration-150">
-          <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-xs font-mono font-bold text-slate-300 border border-slate-800">
-            {user.username.substring(0, 2).toUpperCase()}
+          <div className="w-8 h-8 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-center text-base shrink-0 select-none relative group">
+            <span>{
+              selectedAvatar === 'piggy' ? '🐷' :
+              selectedAvatar === 'bunny' ? '🐰' :
+              selectedAvatar === 'shiba' ? '🐕' :
+              selectedAvatar === 'kitten' ? '🐱' :
+              selectedAvatar === 'hamster' ? '🐹' : '🐷'
+            }</span>
+            {/* Little level tag on the mascot */}
+            <span className="absolute -bottom-1 -right-1 bg-cyan-500 text-slate-950 text-[7px] font-mono font-extrabold w-3.5 h-3.5 rounded-full flex items-center justify-center border border-slate-950">
+              L{userLevel}
+            </span>
           </div>
           <div className="flex flex-col overflow-hidden">
             <span className="text-xs font-sans font-semibold text-slate-300 truncate">{user.username}</span>
