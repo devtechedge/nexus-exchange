@@ -14,10 +14,10 @@ interface SandboxPanelProps {
   isSandboxActive: boolean;
   isForkingProgress: boolean;
   forkLogs: string[];
-  sandboxBalances: { SOL: number; ETH: number; USDC: number };
+  sandboxBalances: { [key: string]: number };
   handleTriggerFork: () => void;
   handleUpdateSandboxBalance: (asset: 'SOL' | 'ETH' | 'USDC', delta: number) => void;
-  setSandboxBalances: React.Dispatch<React.SetStateAction<{ SOL: number; ETH: number; USDC: number }>>;
+  setSandboxBalances: React.Dispatch<React.SetStateAction<{ [key: string]: number }>>;
   latencyMs: number;
   setLatencyMs: (val: number) => void;
   rateLimitProb: number;

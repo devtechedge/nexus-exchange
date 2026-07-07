@@ -54,6 +54,7 @@ interface TradingViewProps {
   circuitBreakerPercent: number;
   onToggleCircuitBreaker: (armed: boolean, percent: number) => void;
   onTriggerPanic: () => void;
+  isSandboxActive?: boolean;
 }
 
 // Generate friendly live order book asks & bids (Live Buy & Sell Queue)
@@ -93,7 +94,8 @@ export default function TradingView({
   circuitBreakerArmed,
   circuitBreakerPercent,
   onToggleCircuitBreaker,
-  onTriggerPanic
+  onTriggerPanic,
+  isSandboxActive = false
 }: TradingViewProps) {
   // Main simplified beginner tabs: 'buy' | 'limit' | 'swap'
   const [activeMainTab, setActiveMainTab] = useState<'buy' | 'limit' | 'swap'>('buy');
@@ -459,6 +461,28 @@ export default function TradingView({
 
   return (
     <div className="space-y-6">
+
+      {isSandboxActive && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 bg-indigo-950/40 border border-indigo-900/50 rounded-2xl flex items-center justify-between gap-3 text-indigo-400"
+        >
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+            </span>
+            <span className="text-xs font-sans font-bold uppercase tracking-wider">Sandbox Simulation Active</span>
+            <span className="text-[10px] font-mono bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-900/30 text-indigo-300">
+              Zero-Risk Mode
+            </span>
+          </div>
+          <span className="text-[10px] font-mono text-indigo-400/80 hidden sm:inline">
+            Simulated parameters: Network delays, rate limits & packet loss inject rules active.
+          </span>
+        </motion.div>
+      )}
       
       {/* Top Asset Overview Ticker */}
       <div id="trade-ticker" className="p-4 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-4 relative overflow-hidden">

@@ -26,6 +26,7 @@ export interface Transaction {
   targetAmount?: number;
   status: 'completed' | 'pending' | 'failed';
   timestamp: string;
+  isSandbox?: boolean;
 }
 
 export interface ActiveOrder {
@@ -38,6 +39,7 @@ export interface ActiveOrder {
   filled: number;
   status: 'open' | 'filled' | 'cancelled';
   timestamp: string;
+  isSandbox?: boolean;
   // Algorithmic order tracking extensions
   bracketStopLoss?: number;
   bracketTakeProfit?: number;
@@ -63,6 +65,7 @@ export interface GridBot {
   gridLevels: { price: number; type: 'buy' | 'sell'; orderId?: string }[];
   profitEarned: number;
   createdAt: string;
+  isSandbox?: boolean;
 }
 
 export interface ArbitragePath {

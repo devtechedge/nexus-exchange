@@ -25,6 +25,7 @@ interface SidebarProps {
   userXp?: number;
   selectedAvatar?: string;
   streakDays?: number;
+  isSandboxActive?: boolean;
 }
 
 export default function Sidebar({ 
@@ -36,7 +37,8 @@ export default function Sidebar({
   userLevel = 1,
   userXp = 150,
   selectedAvatar = 'piggy',
-  streakDays = 3
+  streakDays = 3,
+  isSandboxActive = false
 }: SidebarProps) {
   const menuItems = [
     { id: 'dashboard', label: 'My Home Dashboard', icon: LayoutDashboard },
@@ -62,17 +64,25 @@ export default function Sidebar({
         </div>
 
         {/* User Balance card */}
-        <div className="p-4 bg-slate-900/40 border border-slate-900 rounded-2xl mb-6">
-          <p className="text-[10px] font-sans text-slate-400 uppercase tracking-wider flex items-center gap-1">My Crypto Piggy Bank 🐷</p>
-          <p className="text-xl font-sans font-bold text-white tracking-tight mt-1">
+        <div className={`p-4 border rounded-2xl mb-6 transition-all duration-300 ${isSandboxActive ? 'bg-indigo-950/25 border-indigo-500/40 shadow-[0_0_12px_rgba(99,102,241,0.12)]' : 'bg-slate-900/40 border-slate-900'}`}>
+          <p className="text-[10px] font-sans text-slate-400 uppercase tracking-wider flex items-center gap-1">
+            {isSandboxActive ? '🧪 Sandbox Practice Funds' : 'My Crypto Piggy Bank 🐷'}
+          </p>
+          <p className={`text-xl font-sans font-bold tracking-tight mt-1 transition-colors ${isSandboxActive ? 'text-indigo-300' : 'text-white'}`}>
             ${usdBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <div className="flex items-center gap-1.5 mt-2.5">
-            <span className={`w-1.5 h-1.5 rounded-full ${user.kycStatus === 'verified' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-            <span className="text-[10px] font-sans text-slate-400">
-              {user.kycStatus === 'verified' ? 'Safe & Verified Account' : 'Limited Profile (Verify ID below)'}
-            </span>
-          </div>
+          {isSandboxActive ? (
+            <div className="mt-2.5 px-2 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-[9px] font-mono text-indigo-400 flex items-center justify-center gap-1">
+              <span>SANDBOX ISOLATION ACTIVE</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 mt-2.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${user.kycStatus === 'verified' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <span className="text-[10px] font-sans text-slate-400">
+                {user.kycStatus === 'verified' ? 'Safe & Verified Account' : 'Limited Profile (Verify ID below)'}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Menu Items */}

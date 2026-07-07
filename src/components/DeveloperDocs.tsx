@@ -22,9 +22,43 @@ interface DeveloperDocsProps {
   apiKeys: ApiKey[];
   onCreateKey: (name: string, perms: { read: boolean; trade: boolean; withdraw: boolean }) => void;
   onRevokeKey: (id: string) => void;
+  isSandboxActive: boolean;
+  setIsSandboxActive: (v: boolean) => void;
+  isForkingProgress: boolean;
+  setIsForkingProgress: (v: boolean) => void;
+  forkLogs: string[];
+  setForkLogs: React.Dispatch<React.SetStateAction<string[]>>;
+  sandboxBalances: { [key: string]: number };
+  setSandboxBalances: React.Dispatch<React.SetStateAction<{ [key: string]: number }>>;
+  latencyMs: number;
+  setLatencyMs: (v: number) => void;
+  rateLimitProb: number;
+  setRateLimitProb: (v: number) => void;
+  packetLossPct: number;
+  setPacketLossPct: (v: number) => void;
+  triggerQuestCompletion?: (questId: string) => void;
 }
 
-export default function DeveloperDocs({ apiKeys, onCreateKey, onRevokeKey }: DeveloperDocsProps) {
+export default function DeveloperDocs({ 
+  apiKeys, 
+  onCreateKey, 
+  onRevokeKey,
+  isSandboxActive,
+  setIsSandboxActive,
+  isForkingProgress,
+  setIsForkingProgress,
+  forkLogs,
+  setForkLogs,
+  sandboxBalances,
+  setSandboxBalances,
+  latencyMs,
+  setLatencyMs,
+  rateLimitProb,
+  setRateLimitProb,
+  packetLossPct,
+  setPacketLossPct,
+  triggerQuestCompletion
+}: DeveloperDocsProps) {
   // Navigation for tab modules
   const [activeSubTab, setActiveSubTab] = useState<'credentials' | 'webhooks' | 'sandbox' | 'analytics' | 'reserves'>('credentials');
 
@@ -285,16 +319,7 @@ export default function DeveloperDocs({ apiKeys, onCreateKey, onRevokeKey }: Dev
     }
   };
 
-  // --- STATE FOR SANDBOX ENVIRONMENT FORKING ---
-  const [isSandboxActive, setIsSandboxActive] = useState(false);
-  const [isForkingProgress, setIsForkingProgress] = useState(false);
-  const [forkLogs, setForkLogs] = useState<string[]>([]);
-  const [sandboxBalances, setSandboxBalances] = useState({
-    SOL: 100,
-    ETH: 10,
-    USDC: 50000
-  });
-
+  // --- BATCH 2: HANDLERS SYNCED TO TOP-LEVEL SANDBOX STATES ---
   const handleTriggerFork = () => {
     setIsForkingProgress(true);
     setForkLogs([]);
@@ -313,6 +338,9 @@ export default function DeveloperDocs({ apiKeys, onCreateKey, onRevokeKey }: Dev
         if (idx === steps.length - 1) {
           setIsForkingProgress(false);
           setIsSandboxActive(true);
+          if (triggerQuestCompletion) {
+            triggerQuestCompletion('dev-key'); // Unlocks when forking first sandbox node!
+          }
         }
       }, (idx + 1) * 350);
     });
@@ -321,14 +349,9 @@ export default function DeveloperDocs({ apiKeys, onCreateKey, onRevokeKey }: Dev
   const handleUpdateSandboxBalance = (asset: 'SOL' | 'ETH' | 'USDC', delta: number) => {
     setSandboxBalances(prev => ({
       ...prev,
-      [asset]: Math.max(0, prev[asset] + delta)
+      [asset]: Math.max(0, (prev[asset] || 0) + delta)
     }));
   };
-
-  // --- STATE FOR NETWORK LATENCY INJECTOR ---
-  const [latencyMs, setLatencyMs] = useState(120);
-  const [rateLimitProb, setRateLimitProb] = useState(0);
-  const [packetLossPct, setPacketLossPct] = useState(0);
   const [isPingTesting, setIsPingTesting] = useState(false);
   const [pingTestResults, setPingTestResults] = useState<Array<{
     endpoint: string;

@@ -129,6 +129,25 @@ export default function App() {
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
   const [confettiActive, setConfettiActive] = useState<boolean>(false);
 
+  // --- BATCH 2: INTERACTIVE SANDBOX & ALGORITHMIC PRACTICE STATES ---
+  const [isSandboxActive, setIsSandboxActive] = useState<boolean>(false);
+  const [isForkingProgress, setIsForkingProgress] = useState<boolean>(false);
+  const [forkLogs, setForkLogs] = useState<string[]>([]);
+  const [sandboxBalances, setSandboxBalances] = useState<{ [key: string]: number }>({
+    USDC: 50000,
+    SOL: 100,
+    ETH: 10,
+    LINK: 250,
+    DOT: 500,
+    DOGE: 1000,
+    ADA: 2000,
+    UNI: 150,
+    NEX: 1000,
+  });
+  const [latencyMs, setLatencyMs] = useState<number>(120);
+  const [rateLimitProb, setRateLimitProb] = useState<number>(0);
+  const [packetLossPct, setPacketLossPct] = useState<number>(0);
+
   // Helper function to award XP with beautiful leveling checks and sparkles
   const awardXp = (amount: number, reason: string) => {
     setUserXp((prevXp) => {
@@ -269,6 +288,8 @@ export default function App() {
 
         prevOrders.forEach((order) => {
           const currentPrice = spotPrices[order.symbol] || order.price;
+          const orderIsSandbox = !!order.isSandbox;
+          const setTargetBalances = orderIsSandbox ? setSandboxBalances : setBalances;
 
           // A. Volatility Circuit Breaker Trigger
           if (circuitBreakerArmed && order.symbol === 'SOL' && solDropDetected) {
@@ -276,9 +297,9 @@ export default function App() {
             const refundCost = order.amount * order.price;
             const fee = refundCost * 0.005;
             if (order.side === 'buy') {
-              setBalances(b => ({ ...b, USDC: b['USDC'] + refundCost + fee }));
+              setTargetBalances(b => ({ ...b, USDC: b['USDC'] + refundCost + fee }));
             } else {
-              setBalances(b => ({ ...b, [order.symbol]: b[order.symbol] + order.amount }));
+              setTargetBalances(b => ({ ...b, [order.symbol]: b[order.symbol] + order.amount }));
             }
             triggerNotification('error', `⚡ CIRCUIT BREAKER TRIPPED! Drops exceeded ${circuitBreakerPercent}%. Order ${order.id} cancelled safely.`);
             return; // Order removed
@@ -289,10 +310,10 @@ export default function App() {
             const isMatch = order.side === 'buy' ? currentPrice <= order.price : currentPrice >= order.price;
             if (isMatch) {
               if (order.side === 'buy') {
-                setBalances(b => ({ ...b, [order.symbol]: (b[order.symbol] || 0) + order.amount }));
+                setTargetBalances(b => ({ ...b, [order.symbol]: (b[order.symbol] || 0) + order.amount }));
               } else {
                 const proceeds = order.amount * order.price - (order.amount * order.price * 0.005);
-                setBalances(b => ({ ...b, USDC: b['USDC'] + proceeds }));
+                setTargetBalances(b => ({ ...b, USDC: b['USDC'] + proceeds }));
               }
 
               setTransactions(txs => [
@@ -304,6 +325,7 @@ export default function App() {
                   price: order.price,
                   status: 'completed',
                   timestamp: new Date().toLocaleTimeString(),
+                  isSandbox: orderIsSandbox,
                 },
                 ...txs
               ]);
@@ -323,13 +345,13 @@ export default function App() {
 
             // Execute single slice
             if (order.side === 'buy') {
-              setBalances(b => ({
+              setTargetBalances(b => ({
                 ...b,
                 [order.symbol]: (b[order.symbol] || 0) + chunkAmount
               }));
             } else {
               const proceeds = chunkCost - chunkFee;
-              setBalances(b => ({
+              setTargetBalances(b => ({
                 ...b,
                 USDC: b['USDC'] + proceeds
               }));
@@ -346,6 +368,7 @@ export default function App() {
                 status: 'completed',
                 timestamp: new Date().toLocaleTimeString(),
                 note: `Algorithmic ${order.type.toUpperCase()} slice execution ${filledChunks}/${totalChunks}`,
+                isSandbox: orderIsSandbox,
               },
               ...txs
             ]);
@@ -367,10 +390,10 @@ export default function App() {
           if (order.type === 'vwap') {
             if (Math.random() > 0.7) { // Simulated volume sweep match
               if (order.side === 'buy') {
-                setBalances(b => ({ ...b, [order.symbol]: (b[order.symbol] || 0) + order.amount }));
+                setTargetBalances(b => ({ ...b, [order.symbol]: (b[order.symbol] || 0) + order.amount }));
               } else {
                 const proceeds = order.amount * currentPrice - (order.amount * currentPrice * 0.005);
-                setBalances(b => ({ ...b, USDC: b['USDC'] + proceeds }));
+                setTargetBalances(b => ({ ...b, USDC: b['USDC'] + proceeds }));
               }
 
               setTransactions(txs => [
@@ -383,6 +406,7 @@ export default function App() {
                   status: 'completed',
                   timestamp: new Date().toLocaleTimeString(),
                   note: 'VWAP Institutional Liquidity Wave',
+                  isSandbox: orderIsSandbox,
                 },
                 ...txs
               ]);
@@ -405,7 +429,7 @@ export default function App() {
             if (currentPrice <= stopLevel) {
               // Volatility protected stop level reached! Trigger market Sell
               const proceeds = order.amount * currentPrice - (order.amount * currentPrice * 0.005);
-              setBalances(b => ({
+              setTargetBalances(b => ({
                 ...b,
                 USDC: b['USDC'] + proceeds
               }));
@@ -420,6 +444,7 @@ export default function App() {
                   status: 'completed',
                   timestamp: new Date().toLocaleTimeString(),
                   note: `Trailing Stop-Loss Executed (ATR cushion adjusted)`,
+                  isSandbox: orderIsSandbox,
                 },
                 ...txs
               ]);
@@ -442,7 +467,7 @@ export default function App() {
 
             if (currentPrice >= tp) {
               const proceeds = order.amount * tp - (order.amount * tp * 0.005);
-              setBalances(b => ({
+              setTargetBalances(b => ({
                 ...b,
                 [order.symbol]: (b[order.symbol] || 0) + (order.side === 'buy' ? order.amount : 0),
                 USDC: b['USDC'] + (order.side === 'sell' ? proceeds : 0),
@@ -458,6 +483,7 @@ export default function App() {
                   status: 'completed',
                   timestamp: new Date().toLocaleTimeString(),
                   note: 'Bracket Take Profit Leg Filled (OCO)',
+                  isSandbox: orderIsSandbox,
                 },
                 ...txs
               ]);
@@ -466,7 +492,7 @@ export default function App() {
               return;
             } else if (currentPrice <= sl) {
               const proceeds = order.amount * sl - (order.amount * sl * 0.005);
-              setBalances(b => ({
+              setTargetBalances(b => ({
                 ...b,
                 [order.symbol]: (b[order.symbol] || 0) + (order.side === 'buy' ? order.amount : 0),
                 USDC: b['USDC'] + (order.side === 'sell' ? proceeds : 0),
@@ -482,6 +508,7 @@ export default function App() {
                   status: 'completed',
                   timestamp: new Date().toLocaleTimeString(),
                   note: 'Bracket Stop Loss Leg Filled (OCO)',
+                  isSandbox: orderIsSandbox,
                 },
                 ...txs
               ]);
@@ -506,7 +533,9 @@ export default function App() {
           // 25% chance of volatility trigger inside range bounds
           if (Math.random() > 0.75) {
             const yieldGained = 1.80 + Math.random() * 2.20;
-            setBalances(b => ({ ...b, USDC: b['USDC'] + yieldGained }));
+            const botIsSandbox = !!bot.isSandbox;
+            const setTargetBalances = botIsSandbox ? setSandboxBalances : setBalances;
+            setTargetBalances(b => ({ ...b, USDC: b['USDC'] + yieldGained }));
 
             setTransactions(txs => [
               {
@@ -518,6 +547,7 @@ export default function App() {
                 status: 'completed',
                 timestamp: new Date().toLocaleTimeString(),
                 note: `Grid Level Arbitrage Match • +$${yieldGained.toFixed(2)} USDC profit`,
+                isSandbox: botIsSandbox,
               },
               ...txs
             ]);
@@ -537,6 +567,11 @@ export default function App() {
     return () => clearInterval(interval);
   }, [spotPrices, circuitBreakerArmed, circuitBreakerPercent]);
 
+  // Switch between live and sandbox balances dynamically based on sandbox active state
+  const currentBalances = useMemo(() => {
+    return isSandboxActive ? sandboxBalances : balances;
+  }, [isSandboxActive, balances, sandboxBalances]);
+
   // Sync balances and prices to get dynamic USD Valuation
   const assets: Asset[] = useMemo(() => {
     return [
@@ -545,7 +580,7 @@ export default function App() {
         name: 'Solana',
         price: spotPrices['SOL'],
         change24h: change24h['SOL'],
-        balance: balances['SOL'] || 0,
+        balance: currentBalances['SOL'] || 0,
         staked: stakedBalances['SOL'] || 0,
         sparkline: makeSparkline(spotPrices['SOL'], 12, 0.03),
       },
@@ -554,7 +589,7 @@ export default function App() {
         name: 'Ethereum',
         price: spotPrices['ETH'],
         change24h: change24h['ETH'],
-        balance: balances['ETH'] || 0,
+        balance: currentBalances['ETH'] || 0,
         staked: stakedBalances['ETH'] || 0,
         sparkline: makeSparkline(spotPrices['ETH'], 12, 0.025),
       },
@@ -563,7 +598,7 @@ export default function App() {
         name: 'Chainlink',
         price: spotPrices['LINK'],
         change24h: change24h['LINK'],
-        balance: balances['LINK'] || 0,
+        balance: currentBalances['LINK'] || 0,
         staked: stakedBalances['LINK'] || 0,
         sparkline: makeSparkline(spotPrices['LINK'], 12, 0.04),
       },
@@ -572,7 +607,7 @@ export default function App() {
         name: 'Polkadot',
         price: spotPrices['DOT'],
         change24h: change24h['DOT'],
-        balance: balances['DOT'] || 0,
+        balance: currentBalances['DOT'] || 0,
         staked: stakedBalances['DOT'] || 0,
         sparkline: makeSparkline(spotPrices['DOT'], 12, 0.06),
       },
@@ -582,7 +617,7 @@ export default function App() {
         name: 'Dogecoin',
         price: spotPrices['DOGE'],
         change24h: change24h['DOGE'],
-        balance: balances['DOGE'] || 0,
+        balance: currentBalances['DOGE'] || 0,
         staked: 0,
         sparkline: makeSparkline(spotPrices['DOGE'], 12, 0.08),
       },
@@ -591,7 +626,7 @@ export default function App() {
         name: 'Cardano',
         price: spotPrices['ADA'],
         change24h: change24h['ADA'],
-        balance: balances['ADA'] || 0,
+        balance: currentBalances['ADA'] || 0,
         staked: 0,
         sparkline: makeSparkline(spotPrices['ADA'], 12, 0.05),
       },
@@ -600,7 +635,7 @@ export default function App() {
         name: 'Uniswap',
         price: spotPrices['UNI'],
         change24h: change24h['UNI'],
-        balance: balances['UNI'] || 0,
+        balance: currentBalances['UNI'] || 0,
         staked: 0,
         sparkline: makeSparkline(spotPrices['UNI'], 12, 0.04),
       },
@@ -610,7 +645,7 @@ export default function App() {
         name: 'Nexus Native',
         price: spotPrices['NEX'],
         change24h: change24h['NEX'],
-        balance: balances['NEX'] || 0,
+        balance: currentBalances['NEX'] || 0,
         staked: 0,
         sparkline: makeSparkline(spotPrices['NEX'], 12, 0.09),
       },
@@ -619,12 +654,12 @@ export default function App() {
         name: 'USD Coin',
         price: 1.00,
         change24h: 0.00,
-        balance: balances['USDC'] || 0,
+        balance: currentBalances['USDC'] || 0,
         staked: 0,
         sparkline: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
       }
     ];
-  }, [spotPrices, balances, stakedBalances, change24h]);
+  }, [spotPrices, currentBalances, stakedBalances, change24h]);
 
   const totalUsdBalance = useMemo(() => {
     let total = 0;
@@ -693,6 +728,33 @@ export default function App() {
     triggerNotification('info', `Switched to Trade Desk for ${symbol}`);
   };
 
+  // Sandbox execution helper with network latency, rate limit, and packet loss simulation
+  const executeSandboxWithSim = (action: () => void, actionName: string) => {
+    if (isSandboxActive) {
+      // 1. Rate Limit check
+      if (rateLimitProb > 0 && Math.random() * 100 < rateLimitProb) {
+        triggerNotification('error', `🛑 HTTP 429: Too Many Requests. Your action for [${actionName}] was rate-limited!`);
+        return;
+      }
+      // 2. Packet Loss check
+      if (packetLossPct > 0 && Math.random() * 100 < packetLossPct) {
+        triggerNotification('error', `📡 Network Packet Loss. Connection timed out trying to reach API endpoint for [${actionName}].`);
+        return;
+      }
+      // 3. Latency simulation
+      if (latencyMs > 0) {
+        triggerNotification('info', `⏳ Network Delay: Simulating ${latencyMs}ms latency for [${actionName}]...`);
+        setTimeout(() => {
+          action();
+          triggerNotification('success', `⚡ Execution success: [${actionName}] completed after ${latencyMs}ms roundtrip.`);
+        }, latencyMs);
+        return;
+      }
+    }
+    // Default synchronous execution
+    action();
+  };
+
   // Trade Executor
   const handleExecuteTrade = (
     symbol: string,
@@ -701,213 +763,269 @@ export default function App() {
     amount: number,
     price: number
   ) => {
-    const cost = amount * price;
-    const baseFee = cost * 0.005;
-    const discountFactor = 1 - (feeDiscount / 100);
-    const fee = baseFee * discountFactor;
-    const totalCost = cost + fee;
+    const orderIsSandbox = isSandboxActive;
+    const setTargetBalances = orderIsSandbox ? setSandboxBalances : setBalances;
 
-    if (type === 'market') {
-      if (side === 'buy') {
-        setBalances(prev => ({
-          ...prev,
-          USDC: prev['USDC'] - totalCost,
-          [symbol]: (prev[symbol] || 0) + amount,
-        }));
-        triggerNotification('success', `Successfully purchased ${amount} ${symbol} for $${totalCost.toFixed(2)}`);
+    const action = () => {
+      const cost = amount * price;
+      const baseFee = cost * 0.005;
+      const discountFactor = 1 - (feeDiscount / 100);
+      const fee = baseFee * discountFactor;
+      const totalCost = cost + fee;
+
+      if (type === 'market') {
+        if (side === 'buy') {
+          setTargetBalances(prev => ({
+            ...prev,
+            USDC: prev['USDC'] - totalCost,
+            [symbol]: (prev[symbol] || 0) + amount,
+          }));
+          triggerNotification('success', `Successfully purchased ${amount} ${symbol} for $${totalCost.toFixed(2)}`);
+        } else {
+          const proceeds = cost - fee;
+          setTargetBalances(prev => ({
+            ...prev,
+            USDC: prev['USDC'] + proceeds,
+            [symbol]: prev[symbol] - amount,
+          }));
+          triggerNotification('success', `Successfully sold ${amount} ${symbol} for $${proceeds.toFixed(2)}`);
+        }
+
+        setTransactions(prev => [
+          {
+            id: generateId(),
+            type: side,
+            asset: symbol,
+            amount,
+            price,
+            status: 'completed',
+            timestamp: new Date().toLocaleTimeString(),
+            isSandbox: orderIsSandbox,
+          },
+          ...prev
+        ]);
+        triggerQuestCompletion('trade');
       } else {
-        const proceeds = cost - fee;
-        setBalances(prev => ({
-          ...prev,
-          USDC: prev['USDC'] + proceeds,
-          [symbol]: prev[symbol] - amount,
-        }));
-        triggerNotification('success', `Successfully sold ${amount} ${symbol} for $${proceeds.toFixed(2)}`);
-      }
-
-      setTransactions(prev => [
-        {
-          id: generateId(),
-          type: side,
-          asset: symbol,
+        const newOrder: ActiveOrder = {
+          id: `limit-${Math.floor(Math.random() * 10000)}`,
+          symbol,
+          type: 'limit',
+          side,
           amount,
           price,
-          status: 'completed',
+          filled: 0,
+          status: 'open',
           timestamp: new Date().toLocaleTimeString(),
-        },
-        ...prev
-      ]);
-      triggerQuestCompletion('trade');
-    } else {
-      const newOrder: ActiveOrder = {
-        id: `limit-${Math.floor(Math.random() * 10000)}`,
-        symbol,
-        type: 'limit',
-        side,
-        amount,
-        price,
-        filled: 0,
-        status: 'open',
-        timestamp: new Date().toLocaleTimeString(),
-      };
-      
-      if (side === 'buy') {
-        setBalances(prev => ({ ...prev, USDC: prev['USDC'] - totalCost }));
-      } else {
-        setBalances(prev => ({ ...prev, [symbol]: prev[symbol] - amount }));
-      }
+          isSandbox: orderIsSandbox,
+        };
+        
+        if (side === 'buy') {
+          setTargetBalances(prev => ({ ...prev, USDC: prev['USDC'] - totalCost }));
+        } else {
+          setTargetBalances(prev => ({ ...prev, [symbol]: prev[symbol] - amount }));
+        }
 
-      setActiveOrders(prev => [newOrder, ...prev]);
-      triggerNotification('info', `Limit order queue updated: ${side.toUpperCase()} ${amount} ${symbol} @ $${price.toFixed(2)}`);
-      triggerQuestCompletion('trade');
-    }
+        setActiveOrders(prev => [newOrder, ...prev]);
+        triggerNotification('info', `Limit order queue updated: ${side.toUpperCase()} ${amount} ${symbol} @ $${price.toFixed(2)}`);
+        triggerQuestCompletion('trade');
+      }
+    };
+
+    executeSandboxWithSim(action, `${side.toUpperCase()} ${amount} ${symbol} (${type.toUpperCase()})`);
   };
 
   // Algorithmic order creation handler
   const handleExecuteAlgoOrder = (orderData: Partial<ActiveOrder>) => {
-    const newOrder: ActiveOrder = {
-      id: `algo-${Math.floor(Math.random() * 10000)}`,
-      symbol: orderData.symbol!,
-      type: orderData.type!,
-      side: orderData.side!,
-      amount: orderData.amount!,
-      price: orderData.price!,
-      filled: 0,
-      status: 'open',
-      timestamp: new Date().toLocaleTimeString(),
-      twapTotalChunks: orderData.twapTotalChunks,
-      twapFilledChunks: orderData.twapFilledChunks,
-      twapIntervalSeconds: orderData.twapIntervalSeconds,
-      twapLastTriggerTime: orderData.twapLastTriggerTime,
-      icebergDisclosedPercent: orderData.icebergDisclosedPercent,
-      vwapTargetVolumeDepth: orderData.vwapTargetVolumeDepth,
-      trailingStopPercent: orderData.trailingStopPercent,
-      trailingHighestPrice: orderData.trailingHighestPrice,
-      trailingActivationPrice: orderData.trailingActivationPrice,
-      bracketTakeProfit: orderData.bracketTakeProfit,
-      bracketStopLoss: orderData.bracketStopLoss,
+    const orderIsSandbox = isSandboxActive;
+    const setTargetBalances = orderIsSandbox ? setSandboxBalances : setBalances;
+
+    const action = () => {
+      const newOrder: ActiveOrder = {
+        id: `algo-${Math.floor(Math.random() * 10000)}`,
+        symbol: orderData.symbol!,
+        type: orderData.type!,
+        side: orderData.side!,
+        amount: orderData.amount!,
+        price: orderData.price!,
+        filled: 0,
+        status: 'open',
+        timestamp: new Date().toLocaleTimeString(),
+        twapTotalChunks: orderData.twapTotalChunks,
+        twapFilledChunks: orderData.twapFilledChunks,
+        twapIntervalSeconds: orderData.twapIntervalSeconds,
+        twapLastTriggerTime: orderData.twapLastTriggerTime,
+        icebergDisclosedPercent: orderData.icebergDisclosedPercent,
+        vwapTargetVolumeDepth: orderData.vwapTargetVolumeDepth,
+        trailingStopPercent: orderData.trailingStopPercent,
+        trailingHighestPrice: orderData.trailingHighestPrice,
+        trailingActivationPrice: orderData.trailingActivationPrice,
+        bracketTakeProfit: orderData.bracketTakeProfit,
+        bracketStopLoss: orderData.bracketStopLoss,
+        isSandbox: orderIsSandbox,
+      };
+
+      const totalCost = orderData.amount! * orderData.price!;
+      const baseFee = totalCost * 0.005;
+      const discountFactor = 1 - (feeDiscount / 100);
+      const fee = baseFee * discountFactor;
+
+      if (orderData.side === 'buy') {
+        setTargetBalances(prev => ({ ...prev, USDC: prev['USDC'] - (totalCost + fee) }));
+      } else {
+        setTargetBalances(prev => ({ ...prev, [orderData.symbol!]: prev[orderData.symbol!] - orderData.amount! }));
+      }
+
+      setActiveOrders(prev => [newOrder, ...prev]);
+      triggerNotification('success', `Locked strategy in algorithmic pipeline: ${orderData.type?.toUpperCase()} on ${orderData.symbol}`);
     };
 
-    const totalCost = orderData.amount! * orderData.price!;
-    const baseFee = totalCost * 0.005;
-    const discountFactor = 1 - (feeDiscount / 100);
-    const fee = baseFee * discountFactor;
-
-    if (orderData.side === 'buy') {
-      setBalances(prev => ({ ...prev, USDC: prev['USDC'] - (totalCost + fee) }));
-    } else {
-      setBalances(prev => ({ ...prev, [orderData.symbol!]: prev[orderData.symbol!] - orderData.amount! }));
-    }
-
-    setActiveOrders(prev => [newOrder, ...prev]);
-    triggerNotification('success', `Locked strategy in algorithmic pipeline: ${orderData.type?.toUpperCase()} on ${orderData.symbol}`);
+    executeSandboxWithSim(action, `ALGO ${orderData.type?.toUpperCase()} ${orderData.symbol}`);
   };
 
   // Grid bot operations
   const handleStartGridBot = (botData: Omit<GridBot, 'id' | 'createdAt' | 'profitEarned'>) => {
-    setBalances(prev => ({
-      ...prev,
-      USDC: prev['USDC'] - botData.investmentAmount
-    }));
+    const orderIsSandbox = isSandboxActive;
+    const setTargetBalances = orderIsSandbox ? setSandboxBalances : setBalances;
 
-    const newBot: GridBot = {
-      ...botData,
-      id: `grid-${Math.floor(Math.random() * 10000)}`,
-      createdAt: new Date().toLocaleDateString(),
-      profitEarned: 0,
+    const action = () => {
+      setTargetBalances(prev => ({
+        ...prev,
+        USDC: prev['USDC'] - botData.investmentAmount
+      }));
+
+      const newBot: GridBot = {
+        ...botData,
+        id: `grid-${Math.floor(Math.random() * 10000)}`,
+        createdAt: new Date().toLocaleDateString(),
+        profitEarned: 0,
+        isSandbox: orderIsSandbox,
+      };
+
+      setGridBots(prev => [newBot, ...prev]);
+      triggerNotification('success', `Initialized ${botData.symbol} High-Frequency Grid Trading Bot!`);
     };
 
-    setGridBots(prev => [newBot, ...prev]);
-    triggerNotification('success', `Initialized ${botData.symbol} High-Frequency Grid Trading Bot!`);
+    executeSandboxWithSim(action, `GRID BOT ${botData.symbol}`);
   };
 
   const handleStopGridBot = (id: string) => {
     const bot = gridBots.find(b => b.id === id);
     if (!bot) return;
 
-    const totalRefund = bot.investmentAmount + bot.profitEarned;
-    setBalances(prev => ({
-      ...prev,
-      USDC: prev['USDC'] + totalRefund
-    }));
+    const orderIsSandbox = !!bot.isSandbox;
+    const setTargetBalances = orderIsSandbox ? setSandboxBalances : setBalances;
 
-    setGridBots(prev => prev.map(b => b.id === id ? { ...b, active: false } : b));
-    triggerNotification('info', `Grid bot stopped. Liquidated range positions. Refunded $${totalRefund.toFixed(2)} to wallet.`);
+    const action = () => {
+      const totalRefund = bot.investmentAmount + bot.profitEarned;
+      setTargetBalances(prev => ({
+        ...prev,
+        USDC: prev['USDC'] + totalRefund
+      }));
+
+      setGridBots(prev => prev.map(b => b.id === id ? { ...b, active: false } : b));
+      triggerNotification('info', `Grid bot stopped. Liquidated range positions. Refunded $${totalRefund.toFixed(2)} to wallet.`);
+    };
+
+    executeSandboxWithSim(action, `STOP GRID BOT ${bot.symbol}`);
   };
 
   // Micro-Asset Dust Sweeper execution handler
   const handleSweepDust = (symbols: string[]) => {
-    let totalValue = 0;
-    const nextBalances = { ...balances };
+    const orderIsSandbox = isSandboxActive;
+    const setTargetBalances = orderIsSandbox ? setSandboxBalances : setBalances;
 
-    symbols.forEach(symbol => {
-      const balance = nextBalances[symbol] || 0;
-      const price = spotPrices[symbol] || 0;
-      totalValue += balance * price;
-      nextBalances[symbol] = 0; // Swept
-    });
+    const action = () => {
+      let totalValue = 0;
+      const currentB = orderIsSandbox ? sandboxBalances : balances;
+      const nextBalances = { ...currentB };
 
-    const nexOutput = totalValue / 0.50; // NEX price is $0.50
-    nextBalances['NEX'] = (nextBalances['NEX'] || 0) + nexOutput;
+      symbols.forEach(symbol => {
+        const balance = nextBalances[symbol] || 0;
+        const price = spotPrices[symbol] || 0;
+        totalValue += balance * price;
+        nextBalances[symbol] = 0; // Swept
+      });
 
-    setBalances(nextBalances);
+      const nexOutput = totalValue / 0.50; // NEX price is $0.50
+      nextBalances['NEX'] = (nextBalances['NEX'] || 0) + nexOutput;
 
-    setTransactions(prev => [
-      {
-        id: generateId(),
-        type: 'swap',
-        asset: symbols.join('+'),
-        amount: 1,
-        targetAsset: 'NEX',
-        targetAmount: nexOutput,
-        status: 'completed',
-        timestamp: new Date().toLocaleTimeString(),
-      },
-      ...prev
-    ]);
+      setTargetBalances(nextBalances);
 
-    triggerNotification('success', `Micro-Asset dust swept! Minted +${nexOutput.toFixed(4)} NEX tokens into primary wallet.`);
+      setTransactions(prev => [
+        {
+          id: generateId(),
+          type: 'swap',
+          asset: symbols.join('+'),
+          amount: 1,
+          targetAsset: 'NEX',
+          targetAmount: nexOutput,
+          status: 'completed',
+          timestamp: new Date().toLocaleTimeString(),
+          isSandbox: orderIsSandbox,
+        },
+        ...prev
+      ]);
+
+      triggerNotification('success', `Micro-Asset dust swept! Minted +${nexOutput.toFixed(4)} NEX tokens into primary wallet.`);
+    };
+
+    executeSandboxWithSim(action, `DUST SWEEP (${symbols.length} assets)`);
   };
 
   const handleCancelOrder = (id: string) => {
     const order = activeOrders.find(o => o.id === id);
     if (!order) return;
 
-    const refundCost = order.amount * order.price;
-    const fee = refundCost * 0.005;
-    if (order.side === 'buy') {
-      setBalances(prev => ({ ...prev, USDC: prev['USDC'] + refundCost + fee }));
-    } else {
-      setBalances(prev => ({ ...prev, [order.symbol]: prev[order.symbol] + order.amount }));
-    }
+    const orderIsSandbox = !!order.isSandbox;
+    const setTargetBalances = orderIsSandbox ? setSandboxBalances : setBalances;
 
-    setActiveOrders(prev => prev.filter(o => o.id !== id));
-    triggerNotification('info', 'Active order cancelled and escrow fully refunded.');
+    const action = () => {
+      const refundCost = order.amount * order.price;
+      const fee = refundCost * 0.005;
+      if (order.side === 'buy') {
+        setTargetBalances(prev => ({ ...prev, USDC: prev['USDC'] + refundCost + fee }));
+      } else {
+        setTargetBalances(prev => ({ ...prev, [order.symbol]: prev[order.symbol] + order.amount }));
+      }
+
+      setActiveOrders(prev => prev.filter(o => o.id !== id));
+      triggerNotification('info', 'Active order cancelled and escrow fully refunded.');
+    };
+
+    executeSandboxWithSim(action, `CANCEL LIMIT ORDER ${order.symbol}`);
   };
 
   const handleExecuteSwap = (fromSymbol: string, toSymbol: string, fromAmount: number, toAmount: number) => {
-    setBalances(prev => ({
-      ...prev,
-      [fromSymbol]: prev[fromSymbol] - fromAmount,
-      [toSymbol]: (prev[toSymbol] || 0) + toAmount,
-    }));
+    const orderIsSandbox = isSandboxActive;
+    const setTargetBalances = orderIsSandbox ? setSandboxBalances : setBalances;
 
-    setTransactions(prev => [
-      {
-        id: generateId(),
-        type: 'swap',
-        asset: fromSymbol,
-        amount: fromAmount,
-        targetAsset: toSymbol,
-        targetAmount: toAmount,
-        status: 'completed',
-        timestamp: new Date().toLocaleTimeString(),
-      },
-      ...prev
-    ]);
+    const action = () => {
+      setTargetBalances(prev => ({
+        ...prev,
+        [fromSymbol]: prev[fromSymbol] - fromAmount,
+        [toSymbol]: (prev[toSymbol] || 0) + toAmount,
+      }));
 
-    triggerNotification('success', `Swapped ${fromAmount} ${fromSymbol} to ${toAmount.toFixed(4)} ${toSymbol}`);
-    triggerQuestCompletion('trade');
+      setTransactions(prev => [
+        {
+          id: generateId(),
+          type: 'swap',
+          asset: fromSymbol,
+          amount: fromAmount,
+          targetAsset: toSymbol,
+          targetAmount: toAmount,
+          status: 'completed',
+          timestamp: new Date().toLocaleTimeString(),
+          isSandbox: orderIsSandbox,
+        },
+        ...prev
+      ]);
+
+      triggerNotification('success', `Swapped ${fromAmount} ${fromSymbol} to ${toAmount.toFixed(4)} ${toSymbol}`);
+      triggerQuestCompletion('trade');
+    };
+
+    executeSandboxWithSim(action, `SWAP ${fromSymbol}➔${toSymbol}`);
   };
 
   const handleStake = (symbol: string, amount: number) => {
@@ -1106,7 +1224,7 @@ export default function App() {
               {activeTab === 'trade' && (
                 <TradingView
                   assets={assets}
-                  balances={balances}
+                  balances={currentBalances}
                   onExecuteTrade={handleExecuteTrade}
                   onExecuteSwap={handleExecuteSwap}
                   activeOrders={activeOrders}
@@ -1119,6 +1237,7 @@ export default function App() {
                   circuitBreakerPercent={circuitBreakerPercent}
                   onToggleCircuitBreaker={handleToggleCircuitBreaker}
                   onTriggerPanic={handleTriggerPanic}
+                  isSandboxActive={isSandboxActive}
                 />
               )}
 
@@ -1150,6 +1269,21 @@ export default function App() {
                   apiKeys={apiKeys}
                   onCreateKey={handleCreateApiKey}
                   onRevokeKey={handleRevokeApiKey}
+                  isSandboxActive={isSandboxActive}
+                  setIsSandboxActive={setIsSandboxActive}
+                  isForkingProgress={isForkingProgress}
+                  setIsForkingProgress={setIsForkingProgress}
+                  forkLogs={forkLogs}
+                  setForkLogs={setForkLogs}
+                  sandboxBalances={sandboxBalances}
+                  setSandboxBalances={setSandboxBalances}
+                  latencyMs={latencyMs}
+                  setLatencyMs={setLatencyMs}
+                  rateLimitProb={rateLimitProb}
+                  setRateLimitProb={setRateLimitProb}
+                  packetLossPct={packetLossPct}
+                  setPacketLossPct={setPacketLossPct}
+                  triggerQuestCompletion={triggerQuestCompletion}
                 />
               )}
 
