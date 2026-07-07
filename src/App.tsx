@@ -1352,6 +1352,9 @@ export default function App() {
                   user={user}
                   onUpdateKyc={handleUpdateKyc}
                   onToggle2FA={handleToggle2FA}
+                  balances={balances}
+                  spotPrices={spotPrices}
+                  onNotification={triggerNotification}
                 />
               )}
 
