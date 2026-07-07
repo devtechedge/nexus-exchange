@@ -10,7 +10,14 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  Bell
+  Bell,
+  LayoutDashboard,
+  ArrowLeftRight,
+  Users,
+  Fingerprint,
+  Code,
+  LogOut,
+  MoreHorizontal
 } from 'lucide-react';
 
 import { User, Asset, Transaction, ActiveOrder, ApiKey, GridBot } from './types';
@@ -47,6 +54,7 @@ export default function App() {
   // Global Session state
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<{ id: string; type: 'success' | 'error' | 'info'; text: string }[]>([]);
 
   // Balances including fractional dust and native token NEX
@@ -1181,7 +1189,7 @@ export default function App() {
       />
 
       {/* Main Content Layout Container */}
-      <main className="pl-64 min-h-screen flex flex-col justify-between relative">
+      <main className="pl-0 md:pl-64 min-h-screen flex flex-col justify-between relative">
         
         {/* Glowing Ambient Background Orbs */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
@@ -1214,24 +1222,35 @@ export default function App() {
         </div>
 
         {/* Top bar header */}
-        <header className="px-8 py-5 border-b border-slate-900/60 flex items-center justify-between relative z-10 bg-slate-950/20 backdrop-blur-md">
+        <header className="sticky top-0 z-40 px-4 md:px-8 py-3.5 md:py-4 border-b border-slate-900/60 flex items-center justify-between bg-[#0B0F19]/80 backdrop-blur-md">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono font-medium text-cyan-400 px-2 py-0.5 rounded bg-cyan-950/40 border border-cyan-900/30">
+            {/* Mobile Logo: visible only on mobile */}
+            <div className="flex md:hidden items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-cyan-500/10 flex items-center justify-center border border-cyan-500/30">
+                <Shield className="w-4 h-4 text-cyan-400" />
+              </div>
+              <span className="font-bold tracking-tight text-xs text-slate-200">NEXUS <span className="text-[9px] text-cyan-400 font-mono">V4.0</span></span>
+            </div>
+            
+            <div className="hidden md:block text-[10px] font-mono font-medium text-cyan-400 px-2 py-0.5 rounded bg-cyan-950/40 border border-cyan-900/30">
               {activeTab.toUpperCase()} DESK
-            </span>
-            <div className="h-4 w-px bg-slate-900" />
-            <span className="text-xs font-mono text-slate-500">UTC CLOCK: {new Date().toUTCString().slice(17, 25)}</span>
+            </div>
+            <div className="md:hidden text-[9px] font-mono font-medium text-cyan-400 px-2 py-0.5 rounded bg-cyan-950/40 border border-cyan-900/30">
+              {activeTab.toUpperCase()}
+            </div>
+            <div className="hidden sm:block h-4 w-px bg-slate-900/60" />
+            <span className="hidden sm:inline text-xs font-mono text-slate-500">UTC CLOCK: {new Date().toUTCString().slice(17, 25)}</span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-900/40 border border-slate-900 rounded-xl">
+          <div className="flex items-center gap-2 md:gap-4">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/40 border border-slate-900 rounded-xl">
               <span className={`w-1.5 h-1.5 rounded-full ${user.kycStatus === 'verified' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
               <span className="text-[10px] font-mono text-slate-400">
                 KYC: {user.kycStatus.toUpperCase()}
               </span>
             </div>
             
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-900/40 border border-slate-900 rounded-xl">
+            <div className="hidden xs:flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/40 border border-slate-900 rounded-xl">
               <span className={`w-1.5 h-1.5 rounded-full ${user.twoFactorEnabled ? 'bg-emerald-500' : 'bg-amber-500'}`} />
               <span className="text-[10px] font-mono text-slate-400">
                 2FA: {user.twoFactorEnabled ? 'ACTIVE' : 'DEACTIVATED'}
@@ -1241,7 +1260,7 @@ export default function App() {
         </header>
 
         {/* Active Tab View Body */}
-        <section className="flex-1 p-8 relative z-10 max-w-7xl w-full mx-auto">
+        <section className="flex-1 p-4 md:p-8 pb-24 md:pb-8 relative z-10 max-w-7xl w-full mx-auto overflow-x-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -1387,6 +1406,152 @@ export default function App() {
         </footer>
 
       </main>
+
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 h-16 border-t border-slate-900/80 bg-slate-950/95 backdrop-blur-md px-2 flex items-center justify-around pb-safe">
+        <button
+          onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }}
+          className={`flex flex-col items-center justify-center flex-1 py-1 ${activeTab === 'dashboard' ? 'text-cyan-400' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <LayoutDashboard className="w-5 h-5" />
+          <span className="text-[10px] font-medium mt-1">Dashboard</span>
+        </button>
+        <button
+          onClick={() => { setActiveTab('trade'); setMobileMenuOpen(false); }}
+          className={`flex flex-col items-center justify-center flex-1 py-1 ${activeTab === 'trade' ? 'text-cyan-400' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <ArrowLeftRight className="w-5 h-5" />
+          <span className="text-[10px] font-medium mt-1">Swap</span>
+        </button>
+        <button
+          onClick={() => { setActiveTab('earn'); setMobileMenuOpen(false); }}
+          className={`flex flex-col items-center justify-center flex-1 py-1 ${activeTab === 'earn' ? 'text-cyan-400' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <TrendingUp className="w-5 h-5" />
+          <span className="text-[10px] font-medium mt-1">Rewards</span>
+        </button>
+        <button
+          onClick={() => { setActiveTab('social'); setMobileMenuOpen(false); }}
+          className={`flex flex-col items-center justify-center flex-1 py-1 ${activeTab === 'social' ? 'text-cyan-400' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <Users className="w-5 h-5" />
+          <span className="text-[10px] font-medium mt-1">Social</span>
+        </button>
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className={`flex flex-col items-center justify-center flex-1 py-1 ${mobileMenuOpen ? 'text-cyan-400' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <MoreHorizontal className="w-5 h-5" />
+          <span className="text-[10px] font-medium mt-1">More</span>
+        </button>
+      </nav>
+
+      {/* MOBILE OVERFLOW DRAWER */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="md:hidden fixed inset-0 bg-black z-50"
+            />
+            {/* Fullscreen bottom-sheet Drawer */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950 border-t border-slate-900 rounded-t-3xl p-6 pb-12 max-h-[75vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-slate-900 border border-slate-800 rounded-lg">
+                    <Shield className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <span className="font-mono font-bold text-sm text-white">NEXUS TOOLS</span>
+                </div>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-1.5 rounded-full bg-slate-900/60 hover:bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* User overview inside the mobile drawer */}
+              <div className="p-4 bg-slate-900/40 border border-slate-900 rounded-2xl mb-6 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-lg shrink-0 relative">
+                  <span>{
+                    selectedAvatar === 'piggy' ? '🐷' :
+                    selectedAvatar === 'bunny' ? '🐰' :
+                    selectedAvatar === 'shiba' ? '🐕' :
+                    selectedAvatar === 'kitten' ? '🐱' :
+                    selectedAvatar === 'hamster' ? '🐹' : '🐷'
+                  }</span>
+                  <span className="absolute -bottom-1 -right-1 bg-cyan-500 text-slate-950 text-[7px] font-mono font-extrabold w-3.5 h-3.5 rounded-full flex items-center justify-center border border-slate-950">
+                    L{userLevel}
+                  </span>
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs font-semibold text-slate-200 truncate">{user.username}</span>
+                  <span className="text-[10px] font-mono text-slate-500 truncate">{user.email}</span>
+                </div>
+              </div>
+
+              {/* Drawer Links */}
+              <div className="space-y-2 mb-6">
+                <button
+                  onClick={() => { setActiveTab('security'); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                    activeTab === 'security'
+                      ? 'bg-slate-900 text-cyan-400 border-slate-800'
+                      : 'bg-slate-900/20 text-slate-300 border-transparent hover:bg-slate-900/40'
+                  }`}
+                >
+                  <Fingerprint className="w-4 h-4" />
+                  <span className="text-xs font-medium">Identity & Security Check</span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('developer'); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                    activeTab === 'developer'
+                      ? 'bg-slate-900 text-cyan-400 border-slate-800'
+                      : 'bg-slate-900/20 text-slate-300 border-transparent hover:bg-slate-900/40'
+                  }`}
+                >
+                  <Code className="w-4 h-4" />
+                  <span className="text-xs font-medium">Developer Tools</span>
+                </button>
+              </div>
+
+              {/* Progress status in Drawer */}
+              <div className="p-4 bg-slate-900/20 border border-slate-900 rounded-2xl mb-6 space-y-2 text-left">
+                <div className="flex justify-between items-center text-[10px] font-sans font-bold text-slate-400">
+                  <span className="text-cyan-400 flex items-center gap-1">Level {userLevel} Practicer</span>
+                  <span className="text-amber-400">🔥 {streakDays}-Day!</span>
+                </div>
+                <div className="relative w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-900/50">
+                  <div
+                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all duration-300"
+                    style={{ width: `${(userXp / (userLevel * 500)) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}
+                className="w-full flex items-center justify-center gap-2 py-3 text-xs font-mono text-slate-400 hover:text-red-400 bg-red-950/10 hover:bg-red-950/25 rounded-xl border border-red-900/20 transition-all"
+              >
+                <LogOut className="w-4 h-4" />
+                Log Out / Safe Exit
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

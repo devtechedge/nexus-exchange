@@ -118,7 +118,7 @@ export default function ClaraBuddy({ onNotification, onTriggerQuestCompletion }:
   return (
     <>
       {/* Floating Clara Avatar Trigger in bottom right */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end">
+      <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-40 flex flex-col items-end">
         {/* Tooltip bubble */}
         <AnimatePresence>
           {showTooltip && !isOpen && (
@@ -126,7 +126,7 @@ export default function ClaraBuddy({ onNotification, onTriggerQuestCompletion }:
               initial={{ opacity: 0, y: 10, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className="mb-2 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-[11px] font-sans font-bold px-3 py-1.5 rounded-xl shadow-xl border border-amber-400 relative mr-1 flex items-center gap-1.5"
+              className="mb-2 max-w-[250px] md:max-w-xs bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-[11px] font-sans font-bold px-3 py-1.5 rounded-xl shadow-xl border border-amber-400 relative mr-1 flex items-center gap-1.5"
             >
               <span>Stuck? Let Clara help! 🐹</span>
               <button
@@ -175,7 +175,7 @@ export default function ClaraBuddy({ onNotification, onTriggerQuestCompletion }:
             initial={{ opacity: 0, y: 50, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.95 }}
-            className="fixed bottom-24 right-6 z-40 w-80 md:w-96 bg-[#0c1224] border border-slate-800/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden h-[420px]"
+            className="fixed bottom-36 md:bottom-24 right-4 md:right-6 z-40 w-[calc(100vw-2rem)] sm:w-80 md:w-96 bg-[#0c1224] border border-slate-800/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden h-[420px] max-w-sm"
           >
             {/* Header */}
             <div className="px-4 py-3.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-b border-slate-900 flex items-center justify-between">

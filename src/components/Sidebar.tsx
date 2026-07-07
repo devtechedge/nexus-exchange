@@ -50,7 +50,7 @@ export default function Sidebar({
   ];
 
   return (
-    <aside id="app-sidebar" className="w-64 bg-slate-950/80 border-r border-slate-900 flex flex-col justify-between h-screen fixed top-0 left-0 z-30 backdrop-blur-md">
+    <aside id="app-sidebar" className="hidden md:flex w-64 bg-slate-950/80 border-r border-slate-900 flex-col justify-between h-screen fixed top-0 left-0 z-30 backdrop-blur-md">
       {/* Top Brand Logo */}
       <div className="p-6">
         <div className="flex items-center gap-2.5 mb-8">
