@@ -84,6 +84,11 @@ export default function DashboardView({
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; value: number; label: string } | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
+  // --- BATCH 4: MY GROWTH CHART & VISUAL ANALYTICS STATES ---
+  const [selectedChartAsset, setSelectedChartAsset] = useState<string>('ALL');
+  const [selectedAnalyticsTab, setSelectedAnalyticsTab] = useState<'allocation' | 'projections' | 'health'>('allocation');
+  const [projectionYears, setProjectionYears] = useState<number>(3);
+
   // --- BATCH 3: WALLET CENTER & SAVINGS GOALS LOCAL STATES & HANDLERS ---
   const [walletTab, setWalletTab] = useState<'deposit' | 'faucet' | 'withdraw'>('deposit');
   const [depositAmount, setDepositAmount] = useState('2500');
@@ -302,39 +307,76 @@ export default function DashboardView({
     }, 2000);
   };
 
-  // Generate mock chart data based on timeframe
+  // Generate mock chart data based on timeframe and selected asset
   const chartData = useMemo(() => {
     let dataPoints = 20;
-    let baseValue = usdBalance * 0.95;
+    
+    // Determine the final value to anchor the chart on
+    let finalValue = usdBalance;
     let trend = 0.002;
     let volatility = 0.015;
+
+    if (selectedChartAsset === 'ALL') {
+      finalValue = usdBalance;
+      volatility = 0.015;
+    } else if (selectedChartAsset === 'STAKED') {
+      finalValue = assets.reduce((sum, a) => sum + (a.staked * a.price), 0);
+      volatility = 0.005; // lower volatility for staked balance
+      trend = 0.008; // clear positive staking yields trend
+    } else {
+      const asset = assets.find(a => a.symbol === selectedChartAsset);
+      if (asset) {
+        const holdingsValue = (asset.balance + asset.staked) * asset.price;
+        // If holdings exist, chart the holdings value. Otherwise chart the asset spot price!
+        finalValue = holdingsValue > 0 ? holdingsValue : asset.price;
+        
+        // Custom asset characteristics
+        if (asset.symbol === 'USDC') {
+          volatility = 0.0005; // extremely flat stablecoin
+          trend = 0.0002;
+        } else if (asset.symbol === 'SOL') {
+          volatility = 0.035; // high beta / volatility
+          trend = 0.004;
+        } else if (asset.symbol === 'ETH') {
+          volatility = 0.025;
+          trend = 0.003;
+        } else if (asset.symbol === 'NEX') {
+          volatility = 0.018;
+          trend = 0.006;
+        } else {
+          volatility = 0.022;
+          trend = 0.002;
+        }
+      }
+    }
+
+    let baseValue = finalValue * 0.95;
 
     switch (selectedTimeframe) {
       case '1H':
         dataPoints = 30;
-        volatility = 0.004;
+        volatility = volatility * 0.25;
         break;
       case '1D':
         dataPoints = 24;
-        volatility = 0.008;
+        volatility = volatility * 0.5;
         break;
       case '1W':
         dataPoints = 28;
-        volatility = 0.012;
+        volatility = volatility * 0.8;
         break;
       case '1M':
         dataPoints = 30;
-        volatility = 0.02;
         break;
       case '1Y':
         dataPoints = 40;
-        volatility = 0.06;
-        trend = 0.005;
+        volatility = volatility * 1.8;
+        trend = trend * 2.5;
         break;
       case 'ALL':
         dataPoints = 50;
-        volatility = 0.12;
-        trend = 0.01;
+        volatility = volatility * 2.5;
+        trend = trend * 4.0;
         break;
     }
 
@@ -348,7 +390,7 @@ export default function DashboardView({
       currentVal = currentVal * (1 + stepFactor * volatility + noise);
       
       // Enforce realistic bounds
-      if (currentVal < baseValue * 0.5) currentVal = baseValue * 0.5;
+      if (currentVal < baseValue * 0.3) currentVal = baseValue * 0.3;
 
       let dateLabel = '';
       const date = new Date();
@@ -372,13 +414,13 @@ export default function DashboardView({
       points.push({ value: currentVal, label: dateLabel });
     }
 
-    // Force last point to match exact current balance
+    // Force last point to match exact final value
     if (points.length > 0) {
-      points[points.length - 1].value = usdBalance;
+      points[points.length - 1].value = finalValue;
     }
 
     return points;
-  }, [selectedTimeframe, usdBalance]);
+  }, [selectedTimeframe, selectedChartAsset, usdBalance, assets]);
 
   // Calculate high, low, change %
   const stats = useMemo(() => {
@@ -392,6 +434,145 @@ export default function DashboardView({
     const changePercent = (change / start) * 100;
     return { high, low, change, changePercent };
   }, [chartData]);
+
+  // --- BATCH 4: VISUAL ANALYTICS CALCULATION ENGINE ---
+  const visualAnalytics = useMemo(() => {
+    // 1. Asset specifications
+    const assetApys: Record<string, number> = { SOL: 6.8, ETH: 4.2, USDC: 8.5, NEX: 12.0, LINK: 5.0, DOT: 7.5 };
+    const assetVolatilities: Record<string, number> = { SOL: 70, ETH: 55, USDC: 5, NEX: 45, LINK: 60, DOT: 65 };
+
+    // 2. Calculations
+    const totalValue = assets.reduce((sum, a) => sum + (a.balance + a.staked) * a.price, 0);
+    
+    const allocations = assets.map(a => {
+      const value = (a.balance + a.staked) * a.price;
+      const pct = totalValue > 0 ? (value / totalValue) * 100 : 0;
+      const apy = assetApys[a.symbol] || 5.0;
+      const volatility = assetVolatilities[a.symbol] || 50;
+      
+      let rating = 'General Asset';
+      if (a.symbol === 'USDC') rating = 'Safe Stable Cushion';
+      else if (a.symbol === 'NEX') rating = 'High-Yield Engine';
+      else if (a.symbol === 'SOL' || a.symbol === 'ETH') rating = 'High Growth Beta';
+      else if (a.symbol === 'LINK' || a.symbol === 'DOT') rating = 'Middleware Utility';
+
+      return {
+        symbol: a.symbol,
+        name: a.name,
+        value,
+        pct,
+        apy,
+        volatility,
+        rating,
+        liquidAmount: a.balance,
+        stakedAmount: a.staked
+      };
+    }).sort((a, b) => b.value - a.value);
+
+    // 3. Weighted portfolio APY
+    const weightedApy = totalValue > 0 
+      ? allocations.reduce((sum, a) => sum + (a.value * a.apy), 0) / totalValue 
+      : 5.0;
+
+    // 4. Weighted portfolio volatility
+    const weightedVolatility = totalValue > 0 
+      ? allocations.reduce((sum, a) => sum + (a.value * a.volatility), 0) / totalValue 
+      : 40.0;
+
+    // 5. Herfindahl-Hirschman Index (HHI) for Diversification Score
+    const hhi = allocations.reduce((sum, a) => sum + (a.pct * a.pct), 0);
+    // Translate HHI to a Diversification Score (0 to 100)
+    let diversificationScore = 100;
+    let diversificationLabel = 'Excellent';
+    let diversificationDesc = 'Your portfolio is excellently diversified. This spreads out your risk and insulates you from single-asset market shocks.';
+    
+    if (totalValue === 0) {
+      diversificationScore = 100;
+      diversificationLabel = 'Fully Liquid (Cash)';
+      diversificationDesc = 'Your Piggy Bank is empty or holds purely liquid cash. Claim from the Faucet or top up to design your portfolio!';
+    } else {
+      diversificationScore = Math.max(10, Math.round(100 - (hhi / 130)));
+      if (hhi < 1500) {
+        diversificationLabel = 'Excellent';
+        diversificationDesc = 'Highly diversified! You have a great balance across multiple assets, minimizing single-asset volatility.';
+      } else if (hhi < 3000) {
+        diversificationLabel = 'Good / Moderate';
+        diversificationDesc = 'Healthy diversification. A few strong core assets supported by secondary positions.';
+      } else if (hhi < 6000) {
+        diversificationLabel = 'Concentrated';
+        diversificationDesc = 'Concentrated exposure. Your growth is heavily dependent on one or two assets. Consider rebalancing to manage risk.';
+      } else {
+        diversificationLabel = 'Extremely Concentrated';
+        diversificationDesc = 'Single asset exposure! 100% of your value is tied to one asset. High-risk, high-reward configuration.';
+      }
+    }
+
+    // 6. Volatility Index rating
+    let riskLabel = 'Moderate';
+    let riskDesc = 'Balanced asset risk profile with a solid yield backing.';
+    if (weightedVolatility < 15) {
+      riskLabel = 'Very Conservative';
+      riskDesc = 'Heavy stablecoin cushion. Immune to short term drops, but lower growth upside.';
+    } else if (weightedVolatility < 35) {
+      riskLabel = 'Conservative / Income';
+      riskDesc = 'Strong staking focus with low-risk coins. Steady growth.';
+    } else if (weightedVolatility < 55) {
+      riskLabel = 'Balanced / Moderate';
+      riskDesc = 'Perfect sweet spot. Steady blue chips paired with high-yield reward tokens.';
+    } else {
+      riskLabel = 'Aggressive Growth';
+      riskDesc = 'High beta crypto assets. Expect sharp market swings, but maximum potential velocity!';
+    }
+
+    // 7. Risk-adjusted Sharpe Ratio (simulated, based on weighted APY / weightedVolatility)
+    const riskFreeRate = 2.0; // 2% risk free yield
+    const sharpeRatio = weightedVolatility > 0 
+      ? Math.max(0.1, (weightedApy - riskFreeRate) / (weightedVolatility / 10)) 
+      : 1.0;
+
+    let sharpeLabel = 'Average';
+    if (sharpeRatio > 2.0) sharpeLabel = 'Excellent (High Risk-Adjusted Return)';
+    else if (sharpeRatio > 1.2) sharpeLabel = 'Good (Solid Yield-to-Risk ratio)';
+    else if (sharpeRatio > 0.5) sharpeLabel = 'Fair';
+    else sharpeLabel = 'Underperforming Risk';
+
+    // 8. Compound interest projections
+    const years = projectionYears;
+    const r = weightedApy / 100;
+    const projectedValue = totalValue * Math.pow(1 + r, years);
+    const interestEarned = Math.max(0, projectedValue - totalValue);
+
+    // Dynamic recommendations from Clara the Hamster based on their analytics
+    let hamsterAdvice = "Looking good! Make sure to put some of your assets into the Staking Garden to earn automatic compound yield! 🐷";
+    if (totalValue === 0) {
+      hamsterAdvice = "Your balance is empty! Click 'Deposit USD' or claim a 'Crypto Faucet' drop to get started! 🐹";
+    } else if (hhi > 5000) {
+      hamsterAdvice = "Your assets are super concentrated! Have you considered swapping some into USDC or NEX to diversify and secure steady staking returns? 🐹";
+    } else if (weightedApy < 5) {
+      hamsterAdvice = "Your overall portfolio yield is quite low! Try staking your liquid assets in the Earn View to boost your APY compound rate! 🌾";
+    } else if (weightedVolatility > 50) {
+      hamsterAdvice = "Whoa, highly active portfolio! High volatility means exciting price moves. Consider adding USDC as a stable foundation! 🛡️";
+    } else if (sharpeRatio > 1.5) {
+      hamsterAdvice = "Outstanding! Your risk-adjusted return ratio is excellent. You are growing your Piggy Bank very efficiently! 🎉";
+    }
+
+    return {
+      totalValue,
+      allocations,
+      weightedApy,
+      weightedVolatility,
+      diversificationScore,
+      diversificationLabel,
+      diversificationDesc,
+      riskLabel,
+      riskDesc,
+      sharpeRatio,
+      sharpeLabel,
+      projectedValue,
+      interestEarned,
+      hamsterAdvice
+    };
+  }, [assets, projectionYears]);
 
   // Handle custom SVG dimensions on sizing
   const svgDimensions = { width: 800, height: 260 };
@@ -535,7 +716,7 @@ export default function DashboardView({
 
       {/* Main Performance Chart */}
       <div id="performance-chart-card" className="p-6 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
           <div>
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-cyan-400" />
@@ -543,8 +724,8 @@ export default function DashboardView({
             </div>
             <p className="text-xs font-sans text-slate-400 mt-1">
               {hoveredPoint 
-                ? `On ${hoveredPoint.label}, your coins were worth $${hoveredPoint.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
-                : 'Hover or slide over the chart lines below to see how your balance grew!'}
+                ? `On ${hoveredPoint.label}, your asset holdings were worth $${hoveredPoint.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
+                : `Currently viewing ${selectedChartAsset === 'ALL' ? 'Total Portfolio Net Worth' : selectedChartAsset === 'STAKED' ? 'Staking garden balances' : selectedChartAsset + ' performance curve'}. Hover or slide to explore details!`}
             </p>
           </div>
 
@@ -566,8 +747,60 @@ export default function DashboardView({
           </div>
         </div>
 
+        {/* --- BATCH 4: PORTFOLIO & ASSET GROWTH SELECTORS --- */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-4 scrollbar-thin border-b border-slate-900/40">
+          <button
+            onClick={() => setSelectedChartAsset('ALL')}
+            className={`px-3 py-1.5 text-xs font-sans font-bold rounded-xl whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 border ${
+              selectedChartAsset === 'ALL'
+                ? 'bg-cyan-950/40 border-cyan-500/50 text-cyan-400 shadow-[0_0_15px_-3px_rgba(6,182,212,0.15)]'
+                : 'bg-slate-950/20 border-slate-900 text-slate-400 hover:text-slate-200 hover:border-slate-800'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            <span>🌎 Net Worth: ${usdBalance.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+          </button>
+          <button
+            onClick={() => setSelectedChartAsset('STAKED')}
+            className={`px-3 py-1.5 text-xs font-sans font-bold rounded-xl whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 border ${
+              selectedChartAsset === 'STAKED'
+                ? 'bg-teal-950/40 border-teal-500/50 text-teal-400'
+                : 'bg-slate-950/20 border-slate-900 text-slate-400 hover:text-slate-200 hover:border-slate-800'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-teal-400" />
+            <span>🔒 Total Staked: ${assets.reduce((sum, a) => sum + (a.staked * a.price), 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+          </button>
+          {assets.map(asset => {
+            const holdingsVal = (asset.balance + asset.staked) * asset.price;
+            const hasHoldings = holdingsVal > 0;
+            return (
+              <button
+                key={asset.symbol}
+                onClick={() => setSelectedChartAsset(asset.symbol)}
+                className={`px-3 py-1.5 text-xs font-sans font-bold rounded-xl whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 border ${
+                  selectedChartAsset === asset.symbol
+                    ? 'bg-purple-950/40 border-purple-500/50 text-purple-300'
+                    : 'bg-slate-950/20 border-slate-900 text-slate-400 hover:text-slate-200 hover:border-slate-800'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  asset.symbol === 'SOL' ? 'bg-indigo-400' :
+                  asset.symbol === 'ETH' ? 'bg-blue-400' :
+                  asset.symbol === 'USDC' ? 'bg-emerald-400' :
+                  asset.symbol === 'NEX' ? 'bg-purple-400' : 'bg-amber-400'
+                }`} />
+                <span>{asset.symbol}</span>
+                <span className="text-[9px] text-slate-500">
+                  ({hasHoldings ? `$${holdingsVal.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : 'no balance'})
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* SVG Chart Frame */}
-        <div ref={chartContainerRef} className="w-full relative overflow-hidden bg-slate-950/20 rounded-xl py-3">
+        <div ref={chartContainerRef} className="w-full relative overflow-hidden bg-slate-950/20 rounded-xl py-3 border border-slate-900/40">
           {/* Hover state tooltip display inside the canvas */}
           {hoveredPoint && (
             <div 
@@ -670,6 +903,455 @@ export default function DashboardView({
               </>
             )}
           </svg>
+        </div>
+
+        {/* --- BATCH 4: VISUAL PORTFOLIO ANALYTICS SECTORS --- */}
+        <div className="mt-8 border-t border-slate-900/60 pt-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-sm font-sans font-bold text-slate-200 uppercase flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                Piggy Portfolio Insights & Health 📊
+              </h3>
+              <p className="text-xs font-sans text-slate-400">
+                Analyze allocations, compound calculations, and portfolio risk index dynamics.
+              </p>
+            </div>
+
+            {/* Segment Selector Tabs */}
+            <div className="flex bg-slate-900/50 p-1 rounded-xl border border-slate-900/60 self-start">
+              <button
+                onClick={() => setSelectedAnalyticsTab('allocation')}
+                className={`px-3 py-1.5 text-xs font-sans font-bold rounded-lg transition-all cursor-pointer ${
+                  selectedAnalyticsTab === 'allocation' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                💼 Allocations
+              </button>
+              <button
+                onClick={() => setSelectedAnalyticsTab('projections')}
+                className={`px-3 py-1.5 text-xs font-sans font-bold rounded-lg transition-all cursor-pointer ${
+                  selectedAnalyticsTab === 'projections' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                🔮 Projections
+              </button>
+              <button
+                onClick={() => setSelectedAnalyticsTab('health')}
+                className={`px-3 py-1.5 text-xs font-sans font-bold rounded-lg transition-all cursor-pointer ${
+                  selectedAnalyticsTab === 'health' ? 'bg-slate-800 text-cyan-400' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                🛡️ Portfolio Health
+              </button>
+            </div>
+          </div>
+
+          <AnimatePresence mode="wait">
+            {selectedAnalyticsTab === 'allocation' && (
+              <motion.div
+                key="allocation"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className="grid grid-cols-1 lg:grid-cols-5 gap-6"
+              >
+                {/* Visual Circle SVG Area (Allocation Ring) */}
+                <div className="lg:col-span-2 p-5 bg-slate-950/60 border border-slate-900/60 rounded-2xl flex flex-col items-center justify-center text-center">
+                  <span className="text-[10px] font-sans text-slate-400 uppercase tracking-wider font-bold mb-4">Allocation Distribution</span>
+                  
+                  {visualAnalytics.totalValue > 0 ? (
+                    <div className="relative w-44 h-44 flex items-center justify-center">
+                      <svg className="w-full h-full transform -rotate-90">
+                        {/* Underlay grey circle */}
+                        <circle
+                          cx="88"
+                          cy="88"
+                          r="70"
+                          stroke="#090d16"
+                          strokeWidth="14"
+                          fill="transparent"
+                        />
+                        {/* Render active segments dynamically */}
+                        {(() => {
+                          let accumulatedPercentage = 0;
+                          const r = 70;
+                          const circumference = 2 * Math.PI * r;
+
+                          return visualAnalytics.allocations.map((a, idx) => {
+                            if (a.pct <= 0) return null;
+                            const strokeDasharray = circumference;
+                            const strokeDashoffset = circumference - (a.pct / 100) * circumference;
+                            const rotation = (accumulatedPercentage / 100) * 360;
+                            accumulatedPercentage += a.pct;
+
+                            const colors = [
+                              'stroke-cyan-500',
+                              'stroke-teal-500',
+                              'stroke-indigo-500',
+                              'stroke-purple-500',
+                              'stroke-emerald-500',
+                              'stroke-pink-500',
+                              'stroke-amber-500'
+                            ];
+                            const colorClass = colors[idx % colors.length];
+
+                            return (
+                              <circle
+                                key={a.symbol}
+                                cx="88"
+                                cy="88"
+                                r={r}
+                                strokeWidth="14"
+                                fill="transparent"
+                                className={`transition-all duration-500 ${colorClass}`}
+                                strokeDasharray={strokeDasharray}
+                                strokeDashoffset={strokeDashoffset}
+                                strokeLinecap="round"
+                                transform={`rotate(${rotation} 88 88)`}
+                              />
+                            );
+                          });
+                        })()}
+                      </svg>
+                      {/* Inner display */}
+                      <div className="absolute flex flex-col items-center justify-center">
+                        <span className="text-[10px] text-slate-400 font-sans uppercase font-bold">Total Portfolio</span>
+                        <span className="text-base font-sans font-black text-white mt-0.5">
+                          ${visualAnalytics.totalValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
+                        <span className="text-[9px] text-cyan-400 font-mono mt-0.5">
+                          {assets.filter(a => (a.balance + a.staked) > 0).length} active coins
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-8 flex flex-col items-center justify-center gap-3">
+                      <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 text-xl">🐷</div>
+                      <span className="text-xs font-sans text-slate-500">No assets in wallet. Balance is 100% flat liquid USD.</span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-4 text-[10px] font-sans text-slate-400">
+                    {visualAnalytics.allocations.slice(0, 4).map((a, idx) => {
+                      if (a.pct <= 0) return null;
+                      const dotColors = ['bg-cyan-500', 'bg-teal-500', 'bg-indigo-500', 'bg-purple-500', 'bg-emerald-500', 'bg-pink-500', 'bg-amber-500'];
+                      return (
+                        <div key={a.symbol} className="flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full ${dotColors[idx % dotColors.length]}`} />
+                          <span>{a.symbol} ({a.pct.toFixed(0)}%)</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Table list of weights */}
+                <div className="lg:col-span-3 space-y-3">
+                  <div className="overflow-x-auto bg-slate-950/20 border border-slate-900/60 rounded-2xl">
+                    <table className="w-full text-left text-xs font-sans">
+                      <thead>
+                        <tr className="border-b border-slate-900 text-slate-400 bg-slate-900/20 text-[10px] uppercase font-bold">
+                          <th className="p-3">Asset</th>
+                          <th className="p-3 text-right">Holding Value</th>
+                          <th className="p-3 text-right">Portfolio Weight</th>
+                          <th className="p-3">Role / Insight</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-900/60 text-slate-300">
+                        {visualAnalytics.allocations.map((a, idx) => {
+                          const hasBalance = a.value > 0;
+                          return (
+                            <tr key={a.symbol} className={`hover:bg-slate-900/10 transition ${!hasBalance ? 'opacity-40' : ''}`}>
+                              <td className="p-3 flex items-center gap-2">
+                                <span className={`w-1.5 h-6 rounded ${
+                                  idx === 0 ? 'bg-cyan-500' :
+                                  idx === 1 ? 'bg-teal-500' :
+                                  idx === 2 ? 'bg-indigo-500' : 'bg-slate-700'
+                                }`} />
+                                <div>
+                                  <span className="font-bold text-white block">{a.symbol}</span>
+                                  <span className="text-[10px] text-slate-500 block">{a.name}</span>
+                                </div>
+                              </td>
+                              <td className="p-3 text-right font-mono font-bold text-slate-200">
+                                ${a.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                <span className="text-[9px] text-slate-500 font-sans block font-normal">
+                                  {a.liquidAmount.toFixed(2)} liquid / {a.stakedAmount.toFixed(2)} staked
+                                </span>
+                              </td>
+                              <td className="p-3 text-right font-mono">
+                                <div className="flex flex-col items-end">
+                                  <span className="font-bold text-cyan-400">{a.pct.toFixed(1)}%</span>
+                                  <div className="w-16 bg-slate-900 h-1 rounded-full mt-1 overflow-hidden">
+                                    <div className="bg-cyan-500 h-full" style={{ width: `${a.pct}%` }} />
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <span className={`text-[9px] px-2 py-0.5 rounded font-medium border ${
+                                  a.symbol === 'USDC' ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900/20' :
+                                  a.symbol === 'NEX' ? 'bg-purple-950/40 text-purple-300 border-purple-900/20' :
+                                  a.symbol === 'SOL' || a.symbol === 'ETH' ? 'bg-cyan-950/40 text-cyan-400 border-cyan-900/20' :
+                                  'bg-slate-900/60 text-slate-400 border-slate-800'
+                                }`}>
+                                  {a.rating}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {selectedAnalyticsTab === 'projections' && (
+              <motion.div
+                key="projections"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className="grid grid-cols-1 lg:grid-cols-5 gap-6"
+              >
+                {/* Left side parameters */}
+                <div className="lg:col-span-2 p-5 bg-slate-950/60 border border-slate-900/60 rounded-2xl space-y-4">
+                  <span className="text-[10px] font-sans text-slate-400 uppercase tracking-wider font-bold block mb-2">Compounding Horizon Parameters</span>
+                  
+                  <div className="space-y-2">
+                    <label className="text-xs font-sans text-slate-300 flex justify-between">
+                      <span>Projections Timeline</span>
+                      <span className="text-cyan-400 font-mono font-bold">{projectionYears} Years</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      value={projectionYears}
+                      onChange={(e) => setProjectionYears(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-500 font-mono">
+                      <span>1 Year</span>
+                      <span>3Y</span>
+                      <span>5Y</span>
+                      <span>10 Years</span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-900/20 border border-slate-900 rounded-xl space-y-2">
+                    <div className="flex justify-between text-xs font-sans">
+                      <span className="text-slate-400">Current Balance:</span>
+                      <span className="font-mono text-slate-200 font-bold">${visualAnalytics.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-sans">
+                      <span className="text-slate-400">Weighted APY rate:</span>
+                      <span className="font-mono text-emerald-400 font-bold">{visualAnalytics.weightedApy.toFixed(2)}% APY</span>
+                    </div>
+                    <p className="text-[9px] text-slate-500 leading-relaxed pt-1.5 border-t border-slate-900/40">
+                      *Calculated dynamically based on your asset weights and individual coin staking yields in the Earn garden.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right side charts or display cards */}
+                <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  
+                  {/* Projections outcome Card */}
+                  <div className="p-5 bg-gradient-to-br from-slate-950/80 to-cyan-950/20 border border-slate-900 rounded-2xl flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-sans text-slate-400 uppercase tracking-wider font-bold block mb-2">Projected Growth 🔮</span>
+                      <h4 className="text-xs font-sans text-slate-400">Total Piggy Value in {projectionYears} years:</h4>
+                      <h2 className="text-2xl font-sans font-black text-cyan-400 tracking-tight mt-1.5">
+                        ${visualAnalytics.projectedValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </h2>
+                    </div>
+
+                    <div className="border-t border-slate-900/60 pt-3 mt-4 space-y-2">
+                      <div className="flex justify-between text-[11px] font-sans">
+                        <span className="text-slate-500">Initial Principal:</span>
+                        <span className="text-slate-300 font-mono">${visualAnalytics.totalValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] font-sans">
+                        <span className="text-emerald-400 font-bold">Yield Profits 🐷:</span>
+                        <span className="text-emerald-400 font-mono font-bold">+${visualAnalytics.interestEarned.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* High Fidelity Compound Projection Visual Grid Bar */}
+                  <div className="p-5 bg-slate-950/60 border border-slate-900 rounded-2xl flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-sans text-slate-400 uppercase tracking-wider font-bold block mb-3">Principal vs. Yield Share</span>
+                      
+                      <div className="space-y-4">
+                        {/* Interactive Bar */}
+                        <div className="w-full h-4 bg-slate-900 rounded-full overflow-hidden flex border border-slate-950">
+                          {visualAnalytics.totalValue > 0 ? (
+                            <>
+                              <div 
+                                className="bg-cyan-600 h-full transition-all duration-300"
+                                style={{ width: `${(visualAnalytics.totalValue / visualAnalytics.projectedValue) * 100}%` }}
+                                title="Principal"
+                              />
+                              <div 
+                                className="bg-emerald-500 h-full transition-all duration-300"
+                                style={{ width: `${(visualAnalytics.interestEarned / visualAnalytics.projectedValue) * 100}%` }}
+                                title="Compound Yield"
+                              />
+                            </>
+                          ) : (
+                            <div className="w-full bg-slate-900" />
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-[10px] font-sans">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded bg-cyan-600" />
+                            <div>
+                              <span className="text-slate-400 block">Principal share</span>
+                              <span className="font-bold text-white">
+                                {visualAnalytics.totalValue > 0 ? ((visualAnalytics.totalValue / visualAnalytics.projectedValue) * 100).toFixed(0) : 0}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded bg-emerald-500" />
+                            <div>
+                              <span className="text-slate-400 block">Yield profits</span>
+                              <span className="font-bold text-emerald-400">
+                                {visualAnalytics.totalValue > 0 ? ((visualAnalytics.interestEarned / visualAnalytics.projectedValue) * 100).toFixed(0) : 0}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-[9px] text-slate-500 leading-snug mt-4">
+                      Compounding turns your yield into a rolling snow ball. Re-invest rewards to keep your principal multiplying!
+                    </p>
+                  </div>
+
+                </div>
+              </motion.div>
+            )}
+
+            {selectedAnalyticsTab === 'health' && (
+              <motion.div
+                key="health"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className="grid grid-cols-1 lg:grid-cols-3 gap-4"
+              >
+                {/* Diversification meter */}
+                <div className="p-5 bg-slate-950/60 border border-slate-900 rounded-2xl flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="text-[10px] font-sans text-slate-400 uppercase tracking-wider font-bold">Diversification Score 🛡️</span>
+                      <span className={`text-[10px] font-sans font-bold px-2 py-0.5 rounded ${
+                        visualAnalytics.diversificationScore > 75 ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/20' :
+                        visualAnalytics.diversificationScore > 45 ? 'bg-amber-950/40 text-amber-400 border border-amber-900/20' :
+                        'bg-red-950/40 text-red-400 border border-red-900/20'
+                      }`}>
+                        {visualAnalytics.diversificationLabel}
+                      </span>
+                    </div>
+
+                    <div className="flex items-end gap-3 mt-4">
+                      <h2 className="text-3xl font-sans font-black text-white">{visualAnalytics.diversificationScore}</h2>
+                      <span className="text-xs text-slate-500 font-sans mb-1">/ 100 points</span>
+                    </div>
+
+                    {/* Progress Gauge */}
+                    <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden mt-3 border border-slate-950">
+                      <div 
+                        className={`h-full transition-all duration-500 ${
+                          visualAnalytics.diversificationScore > 75 ? 'bg-emerald-500' :
+                          visualAnalytics.diversificationScore > 45 ? 'bg-amber-500' :
+                          'bg-red-500'
+                        }`}
+                        style={{ width: `${visualAnalytics.diversificationScore}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-400 leading-relaxed mt-4">
+                    {visualAnalytics.diversificationDesc}
+                  </p>
+                </div>
+
+                {/* Risk profile card */}
+                <div className="p-5 bg-slate-950/60 border border-slate-900 rounded-2xl flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="text-[10px] font-sans text-slate-400 uppercase tracking-wider font-bold">Risk Volatility Profile ⚖️</span>
+                      <span className="text-[10px] font-sans font-bold px-2 py-0.5 rounded bg-blue-950/40 text-blue-400 border border-blue-900/20">
+                        {visualAnalytics.riskLabel}
+                      </span>
+                    </div>
+
+                    <div className="flex items-end gap-3 mt-4">
+                      <h2 className="text-3xl font-sans font-black text-white">{visualAnalytics.weightedVolatility.toFixed(0)}%</h2>
+                      <span className="text-xs text-slate-500 font-sans mb-1">Weighted Volatility Index</span>
+                    </div>
+
+                    {/* Volatility Indicator dial representation */}
+                    <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden mt-3 border border-slate-950 relative">
+                      <div 
+                        className="h-full bg-gradient-to-r from-emerald-500 via-amber-500 to-red-500"
+                        style={{ width: '100%' }}
+                      />
+                      {/* Knob indicator */}
+                      <div 
+                        className="absolute top-0 w-2 h-2 bg-white rounded-full -translate-x-1/2 scale-125 border border-slate-950 transition-all duration-500"
+                        style={{ left: `${visualAnalytics.weightedVolatility}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-400 leading-relaxed mt-4">
+                    {visualAnalytics.riskDesc} Stablecoin balances cushion your profile, while coins like SOL/ETH introduce momentum waves.
+                  </p>
+                </div>
+
+                {/* Risk-Adjusted Return Sharpe Ratio */}
+                <div className="p-5 bg-slate-950/60 border border-slate-900 rounded-2xl flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="text-[10px] font-sans text-slate-400 uppercase tracking-wider font-bold">Sharpe Ratio Efficiency 🚀</span>
+                      <span className="text-[10px] font-mono font-bold text-slate-500">Yield / Volatility</span>
+                    </div>
+
+                    <div className="flex items-end gap-3 mt-4">
+                      <h2 className="text-3xl font-sans font-black text-white">{visualAnalytics.sharpeRatio.toFixed(2)}</h2>
+                      <span className="text-xs text-slate-500 font-sans mb-1">Ratio Rating</span>
+                    </div>
+
+                    <span className="text-xs text-cyan-400 font-bold block mt-3">{visualAnalytics.sharpeLabel}</span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-400 leading-relaxed mt-4">
+                    The Sharpe Ratio measures whether your yield returns are worth the underlying price risks. A ratio above 1.0 is considered highly effective!
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Hamster Advisor Message (Clara help message) */}
+          <div className="mt-6 p-4 bg-slate-900/10 border border-cyan-500/20 rounded-2xl flex items-start gap-3">
+            <span className="text-2xl select-none shrink-0">🐹</span>
+            <div>
+              <span className="text-[10px] font-sans font-bold text-cyan-400 uppercase block">Clara the Portfolio Hamster Advisor</span>
+              <p className="text-xs font-sans text-slate-300 mt-1 leading-relaxed">
+                "{visualAnalytics.hamsterAdvice}"
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
