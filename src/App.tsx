@@ -972,6 +972,73 @@ export default function App() {
     executeSandboxWithSim(action, `DUST SWEEP (${symbols.length} assets)`);
   };
 
+  // Deposit Money into Crypto Piggy Bank (Cash or Faucet)
+  const handleDeposit = (asset: string, amount: number, method: string = 'Simulated Wire') => {
+    const isSandbox = isSandboxActive;
+    const setTargetBalances = isSandbox ? setSandboxBalances : setBalances;
+
+    const action = () => {
+      setTargetBalances(prev => ({
+        ...prev,
+        [asset]: (prev[asset] || 0) + amount,
+      }));
+
+      setTransactions(prev => [
+        {
+          id: generateId(),
+          type: 'deposit',
+          asset,
+          amount,
+          status: 'completed',
+          timestamp: new Date().toLocaleTimeString(),
+          isSandbox,
+        },
+        ...prev
+      ]);
+
+      if (asset === 'USDC') {
+        triggerQuestCompletion('deposit');
+      }
+    };
+
+    executeSandboxWithSim(action, `DEPOSIT ${amount} ${asset} (${method})`);
+  };
+
+  // Withdraw Money from Crypto Piggy Bank (Cash or Send crypto)
+  const handleWithdraw = (asset: string, amount: number, address: string) => {
+    const isSandbox = isSandboxActive;
+    const setTargetBalances = isSandbox ? setSandboxBalances : setBalances;
+    const currentB = isSandbox ? sandboxBalances : balances;
+
+    if ((currentB[asset] || 0) < amount) {
+      triggerNotification('error', `Insufficient ${asset} balance to withdraw ${amount}`);
+      return false;
+    }
+
+    const action = () => {
+      setTargetBalances(prev => ({
+        ...prev,
+        [asset]: (prev[asset] || 0) - amount,
+      }));
+
+      setTransactions(prev => [
+        {
+          id: generateId(),
+          type: 'withdraw',
+          asset,
+          amount,
+          status: 'completed',
+          timestamp: new Date().toLocaleTimeString(),
+          isSandbox,
+        },
+        ...prev
+      ]);
+    };
+
+    executeSandboxWithSim(action, `WITHDRAW ${amount} ${asset} TO ${address.slice(0, 8)}...`);
+    return true;
+  };
+
   const handleCancelOrder = (id: string) => {
     const order = activeOrders.find(o => o.id === id);
     if (!order) return;
@@ -1200,7 +1267,8 @@ export default function App() {
                   completedLessons={completedLessons}
                   onCompleteLesson={(lessonId, rewardType, rewardAmt, xpReward) => {
                     setCompletedLessons((prev) => [...prev, lessonId]);
-                    setBalances((prev) => ({
+                    const setTargetBalances = isSandboxActive ? setSandboxBalances : setBalances;
+                    setTargetBalances((prev) => ({
                       ...prev,
                       [rewardType]: (prev[rewardType] || 0) + rewardAmt,
                     }));
@@ -1208,16 +1276,20 @@ export default function App() {
                   }}
                   onNotification={triggerNotification}
                   onWinReward={(type, amount, label) => {
-                    setBalances((prev) => ({
-                      ...prev,
-                      [type]: (prev[type] || 0) + amount,
-                    }));
                     if (type === 'XP') {
                       awardXp(amount, `Practice Wheel of Fortune!`);
                     } else {
+                      const setTargetBalances = isSandboxActive ? setSandboxBalances : setBalances;
+                      setTargetBalances((prev) => ({
+                        ...prev,
+                        [type]: (prev[type] || 0) + amount,
+                      }));
                       awardXp(50, `Won ${label} on Wheel!`);
                     }
                   }}
+                  isSandboxActive={isSandboxActive}
+                  onDeposit={handleDeposit}
+                  onWithdraw={handleWithdraw}
                 />
               )}
 

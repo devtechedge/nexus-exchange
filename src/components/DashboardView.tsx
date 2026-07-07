@@ -20,7 +20,15 @@ import {
   Info,
   ShieldAlert,
   Star,
-  Coins
+  Coins,
+  ArrowRightLeft,
+  Send,
+  QrCode,
+  Target,
+  Trophy,
+  CreditCard,
+  Building2,
+  ArrowUp
 } from 'lucide-react';
 import { Asset, Transaction } from '../types';
 import QuestLog from './gamified/QuestLog';
@@ -44,6 +52,9 @@ interface DashboardViewProps {
   onCompleteLesson: (lessonId: string, rewardType: 'USDC' | 'NEX', rewardAmt: number, xpReward: number) => void;
   onNotification: (type: 'success' | 'error' | 'info', text: string) => void;
   onWinReward: (type: 'USDC' | 'NEX' | 'XP', amount: number, label: string) => void;
+  isSandboxActive?: boolean;
+  onDeposit?: (asset: string, amount: number, method?: string) => void;
+  onWithdraw?: (asset: string, amount: number, address: string) => boolean;
 }
 
 type Timeframe = '1H' | '1D' | '1W' | '1M' | '1Y' | 'ALL';
@@ -64,11 +75,150 @@ export default function DashboardView({
   completedLessons,
   onCompleteLesson,
   onNotification,
-  onWinReward
+  onWinReward,
+  isSandboxActive = false,
+  onDeposit,
+  onWithdraw
 }: DashboardViewProps) {
   const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>('1W');
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; value: number; label: string } | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
+
+  // --- BATCH 3: WALLET CENTER & SAVINGS GOALS LOCAL STATES & HANDLERS ---
+  const [walletTab, setWalletTab] = useState<'deposit' | 'faucet' | 'withdraw'>('deposit');
+  const [depositAmount, setDepositAmount] = useState('2500');
+  const [depositMethod, setDepositMethod] = useState<'wire' | 'card'>('wire');
+  const [isDepositing, setIsDepositing] = useState(false);
+
+  const [faucetAsset, setFaucetAsset] = useState('SOL');
+  const [isFaucetClaiming, setIsFaucetClaiming] = useState(false);
+
+  const [withdrawAsset, setWithdrawAsset] = useState('USDC');
+  const [withdrawAmount, setWithdrawAmount] = useState('500');
+  const [withdrawAddress, setWithdrawAddress] = useState('');
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [withdrawLogs, setWithdrawLogs] = useState<string[]>([]);
+
+  // Pre-configured Savings Goals Template
+  const [savingsGoals, setSavingsGoals] = useState([
+    { id: 'goal-networth', name: '🐷 Piggy Bank Tycoon', targetType: 'networth', targetAsset: 'USD', targetAmount: 25000, rewardXp: 200, rewardNex: 100, isClaimed: false },
+    { id: 'goal-sol', name: '📈 Solana Pioneer', targetType: 'token', targetAsset: 'SOL', targetAmount: 60, rewardXp: 150, rewardNex: 50, isClaimed: false },
+    { id: 'goal-nex', name: '💎 Nexus Diamond Holder', targetType: 'token', targetAsset: 'NEX', targetAmount: 200, rewardXp: 180, rewardNex: 60, isClaimed: false }
+  ]);
+
+  // Goal progress calculation helper
+  const getGoalProgress = (goal: typeof savingsGoals[0]) => {
+    if (goal.targetType === 'networth') {
+      return Math.min(100, Math.floor((usdBalance / goal.targetAmount) * 100));
+    } else {
+      const asset = assets.find(a => a.symbol === goal.targetAsset);
+      const owned = asset ? (asset.balance + asset.staked) : 0;
+      return Math.min(100, Math.floor((owned / goal.targetAmount) * 100));
+    }
+  };
+
+  const handleWalletDeposit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(depositAmount);
+    if (isNaN(amt) || amt <= 0) {
+      onNotification('error', 'Please enter a valid deposit amount.');
+      return;
+    }
+    setIsDepositing(true);
+    setTimeout(() => {
+      if (onDeposit) {
+        onDeposit('USDC', amt, depositMethod === 'wire' ? 'Simulated Bank Wire' : 'Simulated Credit Card');
+      }
+      setIsDepositing(false);
+      onNotification('success', `Simulated Bank Transfer Complete! Added $${amt.toLocaleString()} USDC to your Piggy Bank.`);
+    }, 1500);
+  };
+
+  const handleFaucetClaim = () => {
+    setIsFaucetClaiming(true);
+    setTimeout(() => {
+      let amt = 10;
+      if (faucetAsset === 'ETH') amt = 1;
+      if (faucetAsset === 'SOL') amt = 10;
+      if (faucetAsset === 'USDC') amt = 1000;
+      if (faucetAsset === 'LINK') amt = 50;
+      if (faucetAsset === 'DOT') amt = 100;
+      if (faucetAsset === 'NEX') amt = 250;
+
+      if (onDeposit) {
+        onDeposit(faucetAsset, amt, 'Nexus Crypto Faucet');
+      }
+      setIsFaucetClaiming(false);
+      onNotification('success', `Faucet dropped +${amt} ${faucetAsset} directly into your wallet!`);
+    }, 1200);
+  };
+
+  const handleWalletWithdraw = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(withdrawAmount);
+    if (isNaN(amt) || amt <= 0) {
+      onNotification('error', 'Please enter a valid withdrawal amount.');
+      return;
+    }
+    if (!withdrawAddress.trim()) {
+      onNotification('error', 'Please enter a destination wallet address.');
+      return;
+    }
+
+    const assetObj = assets.find(a => a.symbol === withdrawAsset);
+    const balance = assetObj ? assetObj.balance : 0;
+    if (balance < amt) {
+      onNotification('error', `Insufficient ${withdrawAsset} wallet balance. You only have ${balance.toFixed(4)}.`);
+      return;
+    }
+
+    setIsWithdrawing(true);
+    setWithdrawLogs([]);
+
+    const logSteps = [
+      '🔍 Verifying receiving address hash...',
+      '⛽ Estimating transaction gas limits...',
+      '📡 Broadcasting payload to peer-to-peer nodes...',
+      '⛓️ Blocks validated. Recording ledger write...'
+    ];
+
+    let currentStep = 0;
+    const interval = setInterval(() => {
+      if (currentStep < logSteps.length) {
+        setWithdrawLogs(prev => [...prev, logSteps[currentStep]]);
+        currentStep++;
+      } else {
+        clearInterval(interval);
+        if (onWithdraw) {
+          const success = onWithdraw(withdrawAsset, amt, withdrawAddress);
+          if (success) {
+            onNotification('success', `Funds cleared! Dispatched ${amt} ${withdrawAsset} to ${withdrawAddress.slice(0, 10)}...`);
+            setWithdrawAmount('');
+            setWithdrawAddress('');
+          }
+        }
+        setIsWithdrawing(false);
+      }
+    }, 450);
+  };
+
+  const handleClaimGoalReward = (goalId: string) => {
+    const goal = savingsGoals.find(g => g.id === goalId);
+    if (!goal) return;
+
+    const progress = getGoalProgress(goal);
+    if (progress < 100) {
+      onNotification('error', 'Goal is not fully completed yet!');
+      return;
+    }
+
+    setSavingsGoals(prev => prev.map(g => g.id === goalId ? { ...g, isClaimed: true } : g));
+
+    if (onDeposit && goal.rewardNex > 0) {
+      onDeposit('NEX', goal.rewardNex, `Savings Goal Reward: ${goal.name}`);
+    }
+    onNotification('success', `🎉 Congratulations! Claimed rewards for "${goal.name}". +${goal.rewardXp} XP and +${goal.rewardNex} NEX earned!`);
+  };
 
   // --- BATCH 1: GAMIFIED TRAINING HUB & PLAYGROUND LOCAL STATES ---
   const [playgroundTab, setPlaygroundTab] = useState<'quests' | 'wheel' | 'avatar'>('quests');
@@ -521,6 +671,376 @@ export default function DashboardView({
             )}
           </svg>
         </div>
+      </div>
+
+      {/* --- BATCH 3: WALLET CENTER & SAVINGS GOALS PANEL --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Interactive Piggy Bank Wallet Desk */}
+        <div id="piggy-bank-wallet-desk" className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md flex flex-col justify-between lg:col-span-2">
+          <div>
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-900 pb-4 mb-4">
+              <div>
+                <h3 className="text-sm font-sans font-bold text-white uppercase flex items-center gap-1.5">
+                  <Wallet className="w-4 h-4 text-cyan-400" />
+                  Piggy Bank Wallet & Faucet Desk 🐷
+                </h3>
+                <p className="text-xs font-sans text-slate-400 mt-1">
+                  Manage your liquid capital, inject cash flow, or claim tokens from test faucets.
+                </p>
+              </div>
+              <span className="text-[10px] font-mono bg-cyan-950/40 text-cyan-400 border border-cyan-900/30 px-2 py-0.5 rounded font-bold uppercase">
+                {isSandboxActive ? 'Sandbox Wallet' : 'Live Wallet'}
+              </span>
+            </div>
+
+            {/* Wallet Desk Tabs */}
+            <div className="flex bg-slate-900/40 p-1 rounded-xl border border-slate-900 mb-6 max-w-md">
+              <button
+                onClick={() => setWalletTab('deposit')}
+                className={`flex-1 py-1.5 text-xs font-sans font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  walletTab === 'deposit' ? 'bg-slate-850 text-cyan-400' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                Deposit USD
+              </button>
+              <button
+                onClick={() => setWalletTab('faucet')}
+                className={`flex-1 py-1.5 text-xs font-sans font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  walletTab === 'faucet' ? 'bg-slate-850 text-cyan-400' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                Crypto Faucet
+              </button>
+              <button
+                onClick={() => setWalletTab('withdraw')}
+                className={`flex-1 py-1.5 text-xs font-sans font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  walletTab === 'withdraw' ? 'bg-slate-850 text-cyan-400' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Send className="w-3.5 h-3.5" />
+                Send / Withdraw
+              </button>
+            </div>
+
+            {/* TAB CONTENTS */}
+            <AnimatePresence mode="wait">
+              {walletTab === 'deposit' && (
+                <motion.form
+                  key="deposit"
+                  onSubmit={handleWalletDeposit}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="space-y-4"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Method Selector */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-sans font-bold text-slate-400 uppercase">Transfer Method</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDepositMethod('wire')}
+                          className={`p-3 rounded-xl border font-sans text-xs font-bold text-left transition flex flex-col gap-1 cursor-pointer ${
+                            depositMethod === 'wire' 
+                              ? 'bg-slate-900 border-cyan-500/30 text-cyan-400' 
+                              : 'bg-slate-950 border-slate-900 text-slate-400 hover:bg-slate-900/30'
+                          }`}
+                        >
+                          <Building2 className="w-4 h-4" />
+                          <span>Simulated Wire</span>
+                          <span className="text-[9px] text-slate-500 font-normal">Immediate clearance</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDepositMethod('card')}
+                          className={`p-3 rounded-xl border font-sans text-xs font-bold text-left transition flex flex-col gap-1 cursor-pointer ${
+                            depositMethod === 'card' 
+                              ? 'bg-slate-900 border-cyan-500/30 text-cyan-400' 
+                              : 'bg-slate-950 border-slate-900 text-slate-400 hover:bg-slate-900/30'
+                          }`}
+                        >
+                          <CreditCard className="w-4 h-4" />
+                          <span>Credit Card</span>
+                          <span className="text-[9px] text-slate-500 font-normal">Immediate clearance</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Amount Input */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-sans font-bold text-slate-400 uppercase">Amount to Top Up (USD)</label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-mono text-slate-400 font-bold">$</span>
+                        <input
+                          id="input-wallet-deposit-amount"
+                          type="number"
+                          value={depositAmount}
+                          onChange={(e) => setDepositAmount(e.target.value)}
+                          placeholder="2500"
+                          disabled={isDepositing}
+                          className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl pl-8 pr-4 py-3.5 text-sm font-mono font-bold text-white outline-none"
+                        />
+                      </div>
+                      <span className="text-[9px] text-slate-500 block">Funds will deposit immediately as USDC play currency.</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isDepositing}
+                    className="w-full py-3.5 bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 text-xs font-sans font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                  >
+                    {isDepositing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Initiating Simulated Clearing...
+                      </>
+                    ) : (
+                      <>
+                        <PlusCircle className="w-4 h-4" />
+                        Complete Top Up Transfer 💸
+                      </>
+                    )}
+                  </button>
+                </motion.form>
+              )}
+
+              {walletTab === 'faucet' && (
+                <motion.div
+                  key="faucet"
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="space-y-4"
+                >
+                  <div className="p-4 bg-slate-900/20 border border-slate-900 rounded-xl flex items-start gap-3">
+                    <QrCode className="w-10 h-10 text-cyan-400 shrink-0 bg-slate-950 p-2 border border-slate-900 rounded-lg" />
+                    <div>
+                      <h4 className="text-xs font-sans font-bold text-slate-200 uppercase">Unique Wallet Deposit Passbook</h4>
+                      <p className="text-[10px] font-mono text-slate-400 mt-1 select-all break-all bg-slate-950 p-1 rounded px-2">
+                        NEXUS-{faucetAsset}-{Math.random().toString(36).substring(2, 10).toUpperCase()}3XWp8L
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Asset Selector */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-sans font-bold text-slate-400 uppercase">Select Faucet Coin</label>
+                      <select
+                        id="select-wallet-faucet-asset"
+                        value={faucetAsset}
+                        onChange={(e) => setFaucetAsset(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl p-3 text-xs font-sans font-bold text-white outline-none"
+                      >
+                        <option value="SOL">Solana (SOL)</option>
+                        <option value="ETH">Ethereum (ETH)</option>
+                        <option value="USDC">USD Coin (USDC)</option>
+                        <option value="LINK">Chainlink (LINK)</option>
+                        <option value="DOT">Polkadot (DOT)</option>
+                        <option value="NEX">Nexus Token (NEX)</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col justify-end">
+                      <button
+                        onClick={handleFaucetClaim}
+                        disabled={isFaucetClaiming}
+                        className="w-full py-3 bg-slate-900 hover:bg-slate-850 text-cyan-400 border border-cyan-500/20 hover:border-cyan-500/30 text-xs font-sans font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                      >
+                        {isFaucetClaiming ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            Dripping Testnet Tokens...
+                          </>
+                        ) : (
+                          <>
+                            <Coins className="w-4 h-4" />
+                            Claim Faucet Tokens
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {walletTab === 'withdraw' && (
+                <motion.form
+                  key="withdraw"
+                  onSubmit={handleWalletWithdraw}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="space-y-4"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Asset to Send */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-sans font-bold text-slate-400 uppercase">Coin</label>
+                      <select
+                        id="select-wallet-withdraw-asset"
+                        value={withdrawAsset}
+                        onChange={(e) => setWithdrawAsset(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 rounded-xl p-3.5 text-xs font-sans font-bold text-white outline-none"
+                      >
+                        {assets.map(a => (
+                          <option key={a.symbol} value={a.symbol}>
+                            {a.symbol} (Avail: {a.balance.toFixed(2)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Amount */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-sans font-bold text-slate-400 uppercase">Amount</label>
+                      <input
+                        id="input-wallet-withdraw-amount"
+                        type="number"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        placeholder="500"
+                        disabled={isWithdrawing}
+                        className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl p-3 text-sm font-mono font-bold text-white outline-none"
+                      />
+                    </div>
+
+                    {/* Receiving Address */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-sans font-bold text-slate-400 uppercase">Destination Address</label>
+                      <input
+                        id="input-wallet-withdraw-address"
+                        type="text"
+                        value={withdrawAddress}
+                        onChange={(e) => setWithdrawAddress(e.target.value)}
+                        placeholder="e.g. sol8Xw1q9... or 0x4f3c..."
+                        disabled={isWithdrawing}
+                        className="w-full bg-slate-950 border border-slate-900 focus:border-cyan-500/50 rounded-xl p-3 text-xs font-mono text-white outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isWithdrawing}
+                    className="w-full py-3.5 bg-slate-900 hover:bg-slate-850 text-red-400 border border-red-950 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                  >
+                    {isWithdrawing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Transmitting Broadcast...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Transmit Funds Out 🚀
+                      </>
+                    )}
+                  </button>
+
+                  {/* Blockchain Live Validator log feed */}
+                  {withdrawLogs.length > 0 && (
+                    <div className="p-3 bg-slate-950 border border-slate-900 rounded-xl space-y-1 font-mono text-[9px] text-slate-400">
+                      <div className="text-[10px] font-sans text-slate-500 font-bold uppercase mb-1 flex items-center gap-1">
+                        <Activity className="w-3 h-3 text-cyan-400 animate-pulse" />
+                        Virtual Blockchain Node log feed
+                      </div>
+                      {withdrawLogs.map((log, i) => (
+                        <div key={i} className="flex gap-1.5">
+                          <span className="text-emerald-500">✔</span>
+                          <span>{log}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </motion.form>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Savings Goals tracker */}
+        <div id="piggy-bank-savings-goals" className="p-5 bg-slate-950/40 border border-slate-900 rounded-2xl backdrop-blur-md flex flex-col justify-between lg:col-span-1">
+          <div>
+            <div className="flex items-center justify-between border-b border-slate-900 pb-4 mb-4">
+              <div>
+                <h3 className="text-sm font-sans font-bold text-white uppercase flex items-center gap-1.5">
+                  <Target className="w-4 h-4 text-cyan-400" />
+                  Piggy Savings Targets 🎯
+                </h3>
+                <p className="text-xs font-sans text-slate-400 mt-1">Accumulate capital to unlock rare coin rewards!</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {savingsGoals.map(goal => {
+                const progress = getGoalProgress(goal);
+                const isComplete = progress >= 100;
+
+                return (
+                  <div key={goal.id} className="p-4 bg-slate-900/20 border border-slate-900 rounded-xl space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-xs font-sans font-bold text-white block">{goal.name}</span>
+                        <span className="text-[10px] font-sans text-slate-400 block mt-0.5">
+                          Target: {goal.targetType === 'networth' ? `$${goal.targetAmount.toLocaleString()} USDC` : `${goal.targetAmount} ${goal.targetAsset}`}
+                        </span>
+                      </div>
+                      <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                        isComplete ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/30' : 'bg-slate-950 text-slate-500'
+                      }`}>
+                        {progress}%
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-900">
+                      <div 
+                        className={`h-full transition-all duration-500 bg-gradient-to-r ${
+                          isComplete ? 'from-emerald-500 to-teal-500' : 'from-cyan-500 to-blue-500'
+                        }`}
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+
+                    {/* Reward & Claim button */}
+                    <div className="flex justify-between items-center pt-1">
+                      <div className="flex items-center gap-1.5">
+                        <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-[10px] font-mono text-slate-400">
+                          +{goal.rewardXp} XP / +{goal.rewardNex} NEX
+                        </span>
+                      </div>
+
+                      {goal.isClaimed ? (
+                        <span className="text-[10px] font-sans text-emerald-400 font-bold uppercase">Claimed ✓</span>
+                      ) : (
+                        <button
+                          onClick={() => handleClaimGoalReward(goal.id)}
+                          disabled={!isComplete}
+                          className={`px-3 py-1 text-[10px] font-sans font-bold rounded-lg transition-all cursor-pointer ${
+                            isComplete 
+                              ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-bold active:scale-[0.95]' 
+                              : 'bg-slate-950 text-slate-600 border border-slate-900 cursor-not-allowed'
+                          }`}
+                        >
+                          Claim
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
       </div>
 
       {/* Bottom Grid: Watchlist & Asset Allocation */}
