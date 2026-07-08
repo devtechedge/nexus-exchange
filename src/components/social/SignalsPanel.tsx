@@ -58,10 +58,10 @@ export default function SignalsPanel({
   const [telegramStatus, setTelegramStatus] = useState<'unlinked' | 'connecting' | 'linked'>('unlinked');
   const [slackStatus, setSlackStatus] = useState<'unlinked' | 'connecting' | 'linked'>('unlinked');
 
-  const [discordWebhook, setDiscordWebhook] = useState('https://discord.com/api/webhooks/983172031/aBcDeFg12345');
+  const [discordWebhook, setDiscordWebhook] = useState('https://example.com/mock/discord/webhook/PLACEHOLDER_ID/PLACEHOLDER_TOKEN');
   const [telegramChatId, setTelegramChatId] = useState('@nexus_exchange_alerts');
-  const [telegramBotToken, setTelegramBotToken] = useState('718290314:AAH_zkP93_NExUsPlAyEr_87acb');
-  const [slackWebhook, setSlackWebhook] = useState('https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX');
+  const [telegramBotToken, setTelegramBotToken] = useState('MOCK_TELEGRAM_BOT_TOKEN_SAFE_718290314');
+  const [slackWebhook, setSlackWebhook] = useState('https://example.com/mock/slack/webhook/SERVICES/T00000000/B00000000/SAFE_TOKEN');
 
   const [activeHandshakeChannel, setActiveHandshakeChannel] = useState<'telegram' | 'discord' | 'slack' | null>(null);
   const [handshakeSteps, setHandshakeSteps] = useState<string[]>([]);
