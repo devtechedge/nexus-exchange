@@ -698,6 +698,8 @@ export default function SocialView({
             key="signals"
             strategies={strategies}
             balances={balances}
+            setBalances={setBalances}
+            onNotification={onNotification}
             guilds={guilds}
             guildDepositInput={guildDepositInput}
             setGuildDepositInput={setGuildDepositInput}
