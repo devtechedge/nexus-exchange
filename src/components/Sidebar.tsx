@@ -12,7 +12,8 @@ import {
   User as UserIcon,
   CheckCircle,
   AlertTriangle,
-  Globe
+  Globe,
+  ShieldCheck
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -47,6 +48,7 @@ export default function Sidebar({
     { id: 'earn', label: 'Rewards Center', icon: TrendingUp },
     { id: 'social', label: 'Community & Friends', icon: Users },
     { id: 'security', label: 'Identity & Security Check', icon: Fingerprint },
+    { id: 'safety-net', label: 'Safety Net Guardrails', icon: ShieldCheck },
     { id: 'global', label: 'Global & Inclusive Access', icon: Globe },
     { id: 'developer', label: 'Developer Tools', icon: Code },
   ];

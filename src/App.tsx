@@ -18,7 +18,8 @@ import {
   Code,
   LogOut,
   MoreHorizontal,
-  Globe
+  Globe,
+  ShieldCheck
 } from 'lucide-react';
 
 import { User, Asset, Transaction, ActiveOrder, ApiKey, GridBot } from './types';
@@ -31,6 +32,7 @@ import SecurityView from './components/SecurityView';
 import DeveloperDocs from './components/DeveloperDocs';
 import SocialView from './components/SocialView';
 import GlobalAccessView from './components/GlobalAccessView';
+import SafetyNetView from './components/SafetyNetView';
 import Confetti from './components/gamified/Confetti';
 import ClaraBuddy from './components/gamified/ClaraBuddy';
 
@@ -157,6 +159,12 @@ export default function App() {
   const [latencyMs, setLatencyMs] = useState<number>(120);
   const [rateLimitProb, setRateLimitProb] = useState<number>(0);
   const [packetLossPct, setPacketLossPct] = useState<number>(0);
+
+  // --- BATCH 9: SANDBOX SAFETY NET GUARDRAILS STATES ---
+  const [spendingLimit, setSpendingLimit] = useState<number>(500);
+  const [spendingLimitLocked, setSpendingLimitLocked] = useState<boolean>(false);
+  const [doubleCheckSliderEnabled, setDoubleCheckSliderEnabled] = useState<boolean>(false);
+  const [assetsLocked, setAssetsLocked] = useState<boolean>(false);
 
   // Helper function to award XP with beautiful leveling checks and sparkles
   const awardXp = (amount: number, reason: string) => {
@@ -1331,6 +1339,11 @@ export default function App() {
                   onToggleCircuitBreaker={handleToggleCircuitBreaker}
                   onTriggerPanic={handleTriggerPanic}
                   isSandboxActive={isSandboxActive}
+                  spendingLimit={spendingLimit}
+                  spendingLimitLocked={spendingLimitLocked}
+                  doubleCheckSliderEnabled={doubleCheckSliderEnabled}
+                  assetsLocked={assetsLocked}
+                  onUnlockSpendingLimit={() => setSpendingLimitLocked(false)}
                 />
               )}
 
@@ -1407,6 +1420,29 @@ export default function App() {
                   setActiveAccentColor={setActiveAccentColor}
                   selectedAvatar={selectedAvatar}
                   setSelectedAvatar={setSelectedAvatar}
+                />
+              )}
+
+              {activeTab === 'safety-net' && (
+                <SafetyNetView
+                  user={user}
+                  apiKeys={apiKeys}
+                  setApiKeys={setApiKeys}
+                  gridBots={gridBots}
+                  setGridBots={setGridBots}
+                  onNotification={triggerNotification}
+                  balances={isSandboxActive ? sandboxBalances : balances}
+                  setBalances={isSandboxActive ? setSandboxBalances : setBalances}
+                  spendingLimit={spendingLimit}
+                  setSpendingLimit={setSpendingLimit}
+                  spendingLimitLocked={spendingLimitLocked}
+                  setSpendingLimitLocked={setSpendingLimitLocked}
+                  doubleCheckSliderEnabled={doubleCheckSliderEnabled}
+                  setDoubleCheckSliderEnabled={setDoubleCheckSliderEnabled}
+                  assetsLocked={assetsLocked}
+                  setAssetsLocked={setAssetsLocked}
+                  kycStatus={user.kycStatus}
+                  twoFactorEnabled={user.twoFactorEnabled}
                 />
               )}
             </motion.div>
@@ -1542,6 +1578,17 @@ export default function App() {
                 >
                   <Globe className="w-4 h-4" />
                   <span className="text-xs font-medium">Global & Inclusive Access</span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('safety-net'); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                    activeTab === 'safety-net'
+                      ? 'bg-slate-900 text-cyan-400 border-slate-800'
+                      : 'bg-slate-900/20 text-slate-300 border-transparent hover:bg-slate-900/40'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span className="text-xs font-medium">Safety Net Guardrails</span>
                 </button>
                 <button
                   onClick={() => { setActiveTab('developer'); setMobileMenuOpen(false); }}

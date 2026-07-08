@@ -55,6 +55,11 @@ interface TradingViewProps {
   onToggleCircuitBreaker: (armed: boolean, percent: number) => void;
   onTriggerPanic: () => void;
   isSandboxActive?: boolean;
+  spendingLimit?: number;
+  spendingLimitLocked?: boolean;
+  doubleCheckSliderEnabled?: boolean;
+  assetsLocked?: boolean;
+  onUnlockSpendingLimit?: () => void;
 }
 
 // Generate friendly live order book asks & bids (Live Buy & Sell Queue)
@@ -95,10 +100,22 @@ export default function TradingView({
   circuitBreakerPercent,
   onToggleCircuitBreaker,
   onTriggerPanic,
-  isSandboxActive = false
+  isSandboxActive = false,
+  spendingLimit = 1000,
+  spendingLimitLocked = false,
+  doubleCheckSliderEnabled = false,
+  assetsLocked = false,
+  onUnlockSpendingLimit
 }: TradingViewProps) {
   // Main simplified beginner tabs: 'buy' | 'limit' | 'swap'
   const [activeMainTab, setActiveMainTab] = useState<'buy' | 'limit' | 'swap'>('buy');
+
+  // --- BATCH 9 SAFETY NET INTERCEPTION STATES ---
+  const [interceptType, setInterceptType] = useState<'none' | 'assets-locked' | 'spending-lock' | 'assistant-warning' | 'confirmation-slider'>('none');
+  const [pendingOrderFn, setPendingOrderFn] = useState<(() => void) | null>(null);
+  const [supervisorPinInput, setSupervisorPinInput] = useState<string>('');
+  const [pinValidationError, setPinValidationError] = useState<string>('');
+  const [sliderPercent, setSliderPercent] = useState<number>(0);
 
   // Curious explorers panel state (holds complex TWAP/Grid Bots)
   const [showAdvancedBots, setShowAdvancedBots] = useState(false);
@@ -285,6 +302,55 @@ export default function TradingView({
     }
   };
 
+  // Central safety check processor
+  const runSafetyChecksAndExecute = (executeAction: () => void, totalValue: number) => {
+    // 1. Emergency Kill switch assets lock
+    if (assetsLocked) {
+      setInterceptType('assets-locked');
+      return;
+    }
+
+    // 2. Parent/Teacher spending limit padlock
+    if (spendingLimitLocked && totalValue > spendingLimit) {
+      setPendingOrderFn(() => executeAction);
+      setInterceptType('spending-lock');
+      setSupervisorPinInput('');
+      setPinValidationError('');
+      return;
+    }
+
+    // 3. Friendly Transaction Assistant price warnings (for limit orders)
+    if (activeMainTab === 'limit') {
+      const pricePercentDiff = Math.abs(targetPriceNumber - selectedAsset.price) / selectedAsset.price;
+      if (pricePercentDiff > 0.15) {
+        setPendingOrderFn(() => {
+          if (doubleCheckSliderEnabled) {
+            setPendingOrderFn(() => executeAction);
+            setInterceptType('confirmation-slider');
+            setSliderPercent(0);
+          } else {
+            executeAction();
+            setInterceptType('none');
+          }
+        });
+        setInterceptType('assistant-warning');
+        return;
+      }
+    }
+
+    // 4. Double check confirmation slider
+    if (doubleCheckSliderEnabled) {
+      setPendingOrderFn(() => executeAction);
+      setInterceptType('confirmation-slider');
+      setSliderPercent(0);
+      return;
+    }
+
+    // Clear and execute
+    setInterceptType('none');
+    executeAction();
+  };
+
   // Submit Trade
   const handleExecuteTradeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -312,19 +378,21 @@ export default function TradingView({
       }
     }
 
-    // Execute through core function
-    onExecuteTrade(
-      tradeAsset, 
-      tradeSide, 
-      activeMainTab === 'buy' ? 'market' : 'limit', 
-      coinAmt, 
-      targetPriceNumber
-    );
+    const action = () => {
+      onExecuteTrade(
+        tradeAsset, 
+        tradeSide, 
+        activeMainTab === 'buy' ? 'market' : 'limit', 
+        coinAmt, 
+        targetPriceNumber
+      );
+      setUsdSpendAmount('50');
+      setCoinSellAmount('1');
+      setTradeError('');
+    };
 
-    // Friendly celebration reset
-    setUsdSpendAmount('50');
-    setCoinSellAmount('1');
-    setTradeError('');
+    const costInUsd = tradeSide === 'buy' ? (subtotal + protocolFee) : subtotal;
+    runSafetyChecksAndExecute(action, costInUsd);
   };
 
   const handleExecuteSwapSubmit = (e: React.FormEvent) => {
@@ -343,8 +411,17 @@ export default function TradingView({
       return;
     }
 
-    onExecuteSwap(swapFrom, swapTo, amt, swapToAmount);
-    setSwapFromAmount('50');
+    const action = () => {
+      onExecuteSwap(swapFrom, swapTo, amt, swapToAmount);
+      setSwapFromAmount('50');
+      setSwapError('');
+    };
+
+    // Swapping from asset USD equivalent value
+    const fromAssetObj = assets.find(a => a.symbol === swapFrom);
+    const valueInUsd = amt * (fromAssetObj?.price || 1);
+
+    runSafetyChecksAndExecute(action, valueInUsd);
   };
 
   const handleTriggerArbitrage = (path: ArbitragePath) => {
@@ -1439,6 +1516,337 @@ export default function TradingView({
         </div>
 
       </div>
+
+      {/* ================= BATCH 9: SANDBOX SAFETY NET INTERCEPT OVERLAYS ================= */}
+      <AnimatePresence>
+        {interceptType !== 'none' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-slate-900 border-2 border-slate-850 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden"
+            >
+              {/* Background accent glow */}
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+
+              {/* 1. ASSETS LOCKED OVERLAY */}
+              {interceptType === 'assets-locked' && (
+                <div className="space-y-6 text-center">
+                  <div className="mx-auto w-16 h-16 bg-red-950/40 border border-red-500/40 rounded-2xl flex items-center justify-center animate-bounce text-3xl">
+                    🚨
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-sans font-bold text-red-400 uppercase tracking-wide">
+                      Transactions Frozen!
+                    </h3>
+                    <p className="text-xs text-slate-400 font-mono">
+                      EMERGENCY ASSETS LOCK ENABLED
+                    </p>
+                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed font-sans bg-slate-950/50 p-4 border border-slate-850 rounded-2xl">
+                    The <strong>Red Emergency Button</strong> has been pressed. All automated trading bots have been safely suspended, and active API keys revoked. For security against potential exploits, sandbox asset movements and trading desks are completely locked.
+                  </p>
+                  <button
+                    onClick={() => setInterceptType('none')}
+                    className="w-full py-3.5 bg-slate-850 hover:bg-slate-800 text-slate-300 text-xs font-sans font-bold rounded-2xl border border-slate-800 transition uppercase cursor-pointer"
+                  >
+                    Dismiss / Close Desk
+                  </button>
+                </div>
+              )}
+
+              {/* 2. SPENDING LIMIT PADLOCK OVERLAY */}
+              {interceptType === 'spending-lock' && (
+                <div className="space-y-6">
+                  <div className="text-center space-y-4">
+                    <div className="mx-auto w-16 h-16 bg-indigo-950/40 border border-indigo-500/40 rounded-2xl flex items-center justify-center text-3xl">
+                      🔒
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-sans font-bold text-indigo-300 uppercase tracking-wide">
+                        Spending Limit Lockout
+                      </h3>
+                      <p className="text-[11px] font-mono text-slate-400">
+                        SUPERVISOR AUTHORIZATION REQUIRED
+                      </p>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-normal font-sans">
+                      This transaction exceeds your sandbox single-trade cap of <strong className="text-indigo-400">${spendingLimit.toLocaleString()}</strong>. Ask your parent, teacher, or supervisor to enter the 4-digit unlock code.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4 bg-slate-950/40 border border-slate-850/60 p-4 rounded-2xl">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400 block">
+                        Enter 4-Digit Supervisor PIN
+                      </label>
+                      <input
+                        type="password"
+                        maxLength={4}
+                        placeholder="••••"
+                        value={supervisorPinInput}
+                        onChange={(e) => {
+                          setSupervisorPinInput(e.target.value.replace(/\D/g, ''));
+                          setPinValidationError('');
+                        }}
+                        className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-4 py-3 text-center text-lg tracking-[0.5em] font-mono text-white focus:outline-none"
+                      />
+                      {pinValidationError && (
+                        <p className="text-[11px] font-sans text-red-400 font-semibold text-center mt-1">
+                          ⚠️ {pinValidationError}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Numeric keypad helper */}
+                    <div className="grid grid-cols-3 gap-1.5 pt-1">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => {
+                            if (supervisorPinInput.length < 4) {
+                              setSupervisorPinInput(prev => prev + num);
+                            }
+                          }}
+                          className="py-2 bg-slate-900 hover:bg-slate-850 border border-slate-850/30 text-slate-300 font-mono text-sm rounded-lg transition"
+                        >
+                          {num}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setSupervisorPinInput('')}
+                        className="py-2 bg-slate-900 hover:bg-slate-850 text-red-400 font-sans text-xs rounded-lg border border-slate-850/30"
+                      >
+                        Clear
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (supervisorPinInput.length < 4) {
+                            setSupervisorPinInput(prev => prev + '0');
+                          }
+                        }}
+                        className="py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 font-mono text-sm rounded-lg border border-slate-850/30"
+                      >
+                        0
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (supervisorPinInput === '1234') {
+                            if (pendingOrderFn) pendingOrderFn();
+                            setInterceptType('none');
+                          } else {
+                            setPinValidationError('Invalid supervisor PIN. Try "1234" (Demo PIN)');
+                          }
+                        }}
+                        className="py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs font-bold rounded-lg"
+                      >
+                        OK
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInterceptType('none');
+                        setPendingOrderFn(null);
+                      }}
+                      className="flex-1 py-3 bg-slate-850 hover:bg-slate-800 text-slate-400 font-sans font-bold text-xs rounded-xl border border-slate-800 transition"
+                    >
+                      Cancel Order
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (supervisorPinInput === '1234') {
+                          if (pendingOrderFn) pendingOrderFn();
+                          setInterceptType('none');
+                        } else {
+                          setPinValidationError('Invalid supervisor PIN. Try "1234" (Demo PIN)');
+                        }
+                      }}
+                      className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-bold text-xs rounded-xl shadow-lg transition"
+                    >
+                      Unlock & Confirm
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. FRIENDLY TRANSACTION ASSISTANT WARNING OVERLAY */}
+              {interceptType === 'assistant-warning' && (
+                <div className="space-y-6">
+                  <div className="text-center space-y-4">
+                    <div className="mx-auto w-16 h-16 bg-cyan-950/40 border border-cyan-500/40 rounded-2xl flex items-center justify-center text-3xl">
+                      🤖
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-sans font-bold text-cyan-300 uppercase tracking-wide">
+                        Slippage & Fat-Finger Alert
+                      </h3>
+                      <p className="text-[11px] font-mono text-slate-400">
+                        FRIENDLY TRANSACTION ASSISTANT REVIEW
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-300 leading-relaxed font-sans bg-slate-950/50 p-4 border border-slate-850 rounded-2xl">
+                    Whoa, friend! The <strong>Transaction Assistant</strong> detected that the target price you set of <strong className="text-white">${parseFloat(customTargetPrice).toFixed(2)}</strong> is more than <strong>15% away</strong> from the current market index price of <strong className="text-cyan-400">${selectedAsset.price.toFixed(2)}</strong>. 
+                    <br/><br/>
+                    Setting target prices extremely far from the index is usually an accidental slip-up (a <em>fat-finger error</em>) that can result in executing trades at unfavorable rates!
+                  </p>
+
+                  <div className="space-y-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomTargetPrice(selectedAsset.price.toFixed(2));
+                        setTimeout(() => {
+                          if (pendingOrderFn) {
+                            if (doubleCheckSliderEnabled) {
+                              setInterceptType('confirmation-slider');
+                              setSliderPercent(0);
+                            } else {
+                              pendingOrderFn();
+                              setInterceptType('none');
+                            }
+                          }
+                        }, 100);
+                      }}
+                      className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-sans font-extrabold text-xs rounded-xl shadow-lg transition uppercase tracking-wide"
+                    >
+                      💡 Adjust to Market Index Price (${selectedAsset.price.toFixed(2)})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (pendingOrderFn) {
+                          if (doubleCheckSliderEnabled) {
+                            setInterceptType('confirmation-slider');
+                            setSliderPercent(0);
+                          } else {
+                            pendingOrderFn();
+                            setInterceptType('none');
+                          }
+                        }
+                      }}
+                      className="w-full py-3 bg-slate-850 hover:bg-slate-800 text-amber-400 font-sans font-bold text-xs rounded-xl border border-slate-800 transition"
+                    >
+                      I Know What I'm Doing, Force Order Anyway! ⚠️
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInterceptType('none');
+                        setPendingOrderFn(null);
+                      }}
+                      className="w-full py-3 bg-transparent hover:bg-slate-850 text-slate-400 font-sans font-bold text-xs rounded-xl border border-slate-850/40 transition"
+                    >
+                      Cancel Transaction
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 4. MECHANICAL CONFIRMATION SLIDER OVERLAY */}
+              {interceptType === 'confirmation-slider' && (
+                <div className="space-y-6">
+                  <div className="text-center space-y-4">
+                    <div className="mx-auto w-16 h-16 bg-emerald-950/40 border border-emerald-500/40 rounded-2xl flex items-center justify-center text-3xl">
+                      ⚙️
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-sans font-bold text-emerald-300 uppercase tracking-wide">
+                        Mechanical Order Swipe
+                      </h3>
+                      <p className="text-[11px] font-mono text-slate-400">
+                        PREVENT ACCIDENTAL SUBMISSIONS
+                      </p>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-normal font-sans">
+                      Verify you've reviewed your sandbox transaction order book details. Slide the confirmation cog to the extreme right to execute the order.
+                    </p>
+                  </div>
+
+                  {/* Interactive Slider */}
+                  <div className="relative h-14 bg-slate-950 border-2 border-slate-850 rounded-2xl p-1 flex items-center select-none overflow-hidden">
+                    <div 
+                      className="absolute top-0 left-0 h-full bg-emerald-500/10 transition-all duration-75"
+                      style={{ width: `${sliderPercent}%` }}
+                    />
+
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-slate-500 animate-pulse">
+                        {sliderPercent === 100 ? 'ORDER VERIFIED! ✔' : 'Swipe Slider Right >>>'}
+                      </span>
+                    </div>
+
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={sliderPercent}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        setSliderPercent(val);
+                        if (val >= 98) {
+                          setSliderPercent(100);
+                          setTimeout(() => {
+                            if (pendingOrderFn) pendingOrderFn();
+                            setInterceptType('none');
+                            setSliderPercent(0);
+                          }, 300);
+                        }
+                      }}
+                      onMouseUp={() => {
+                        if (sliderPercent < 98) {
+                          setSliderPercent(0);
+                        }
+                      }}
+                      onTouchEnd={() => {
+                        if (sliderPercent < 98) {
+                          setSliderPercent(0);
+                        }
+                      }}
+                      className="w-full h-full opacity-0 absolute inset-0 cursor-ew-resize z-10"
+                    />
+
+                    <div 
+                      className="h-10 w-10 bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg pointer-events-none transition-all duration-75"
+                      style={{ transform: `translateX(${(sliderPercent / 100) * (330 - 40)}px)` }}
+                    >
+                      <Zap className="w-5 h-5 text-slate-950" />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInterceptType('none');
+                      setPendingOrderFn(null);
+                    }}
+                    className="w-full py-3 bg-slate-850 hover:bg-slate-800 text-slate-400 font-sans font-bold text-xs rounded-xl border border-slate-800 transition"
+                  >
+                    Cancel Transaction
+                  </button>
+                </div>
+              )}
+
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
