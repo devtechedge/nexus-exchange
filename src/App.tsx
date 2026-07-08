@@ -17,7 +17,8 @@ import {
   Fingerprint,
   Code,
   LogOut,
-  MoreHorizontal
+  MoreHorizontal,
+  Globe
 } from 'lucide-react';
 
 import { User, Asset, Transaction, ActiveOrder, ApiKey, GridBot } from './types';
@@ -29,6 +30,7 @@ import EarnView from './components/EarnView';
 import SecurityView from './components/SecurityView';
 import DeveloperDocs from './components/DeveloperDocs';
 import SocialView from './components/SocialView';
+import GlobalAccessView from './components/GlobalAccessView';
 import Confetti from './components/gamified/Confetti';
 import ClaraBuddy from './components/gamified/ClaraBuddy';
 
@@ -1394,6 +1396,19 @@ export default function App() {
                   triggerQuestCompletion={triggerQuestCompletion}
                 />
               )}
+
+              {activeTab === 'global' && (
+                <GlobalAccessView
+                  assets={assets}
+                  balances={balances}
+                  setBalances={setBalances}
+                  onNotification={triggerNotification}
+                  activeAccentColor={activeAccentColor}
+                  setActiveAccentColor={setActiveAccentColor}
+                  selectedAvatar={selectedAvatar}
+                  setSelectedAvatar={setSelectedAvatar}
+                />
+              )}
             </motion.div>
           </AnimatePresence>
         </section>
@@ -1516,6 +1531,17 @@ export default function App() {
                 >
                   <Fingerprint className="w-4 h-4" />
                   <span className="text-xs font-medium">Identity & Security Check</span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('global'); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                    activeTab === 'global'
+                      ? 'bg-slate-900 text-cyan-400 border-slate-800'
+                      : 'bg-slate-900/20 text-slate-300 border-transparent hover:bg-slate-900/40'
+                  }`}
+                >
+                  <Globe className="w-4 h-4" />
+                  <span className="text-xs font-medium">Global & Inclusive Access</span>
                 </button>
                 <button
                   onClick={() => { setActiveTab('developer'); setMobileMenuOpen(false); }}
