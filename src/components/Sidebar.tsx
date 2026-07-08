@@ -13,7 +13,8 @@ import {
   CheckCircle,
   AlertTriangle,
   Globe,
-  ShieldCheck
+  ShieldCheck,
+  GraduationCap
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -47,6 +48,7 @@ export default function Sidebar({
     { id: 'trade', label: 'Buy, Sell & Swap Center', icon: ArrowLeftRight },
     { id: 'earn', label: 'Rewards Center', icon: TrendingUp },
     { id: 'social', label: 'Community & Friends', icon: Users },
+    { id: 'classroom', label: 'Classroom Sandbox', icon: GraduationCap },
     { id: 'security', label: 'Identity & Security Check', icon: Fingerprint },
     { id: 'safety-net', label: 'Safety Net Guardrails', icon: ShieldCheck },
     { id: 'global', label: 'Global & Inclusive Access', icon: Globe },

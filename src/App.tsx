@@ -19,7 +19,8 @@ import {
   LogOut,
   MoreHorizontal,
   Globe,
-  ShieldCheck
+  ShieldCheck,
+  GraduationCap
 } from 'lucide-react';
 
 import { User, Asset, Transaction, ActiveOrder, ApiKey, GridBot } from './types';
@@ -31,6 +32,7 @@ import EarnView from './components/EarnView';
 import SecurityView from './components/SecurityView';
 import DeveloperDocs from './components/DeveloperDocs';
 import SocialView from './components/SocialView';
+import ClassroomView from './components/ClassroomView';
 import GlobalAccessView from './components/GlobalAccessView';
 import SafetyNetView from './components/SafetyNetView';
 import Confetti from './components/gamified/Confetti';
@@ -1410,6 +1412,20 @@ export default function App() {
                 />
               )}
 
+              {activeTab === 'classroom' && (
+                <ClassroomView
+                  user={user}
+                  balances={isSandboxActive ? sandboxBalances : balances}
+                  setBalances={isSandboxActive ? setSandboxBalances : setBalances}
+                  gridBots={gridBots}
+                  setGridBots={setGridBots}
+                  onNotification={triggerNotification}
+                  streakDays={streakDays}
+                  onWaterStreakGarden={(xpAward) => awardXp(xpAward, 'Watered Streak Garden! 🌱')}
+                  awardXp={(amount, reason) => awardXp(amount, reason)}
+                />
+              )}
+
               {activeTab === 'global' && (
                 <GlobalAccessView
                   assets={assets}
@@ -1578,6 +1594,17 @@ export default function App() {
                 >
                   <Globe className="w-4 h-4" />
                   <span className="text-xs font-medium">Global & Inclusive Access</span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('classroom'); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                    activeTab === 'classroom'
+                      ? 'bg-slate-900 text-cyan-400 border-slate-800'
+                      : 'bg-slate-900/20 text-slate-300 border-transparent hover:bg-slate-900/40'
+                  }`}
+                >
+                  <GraduationCap className="w-4 h-4" />
+                  <span className="text-xs font-medium">Classroom Sandbox</span>
                 </button>
                 <button
                   onClick={() => { setActiveTab('safety-net'); setMobileMenuOpen(false); }}

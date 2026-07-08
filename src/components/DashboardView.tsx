@@ -34,6 +34,7 @@ import { Asset, Transaction } from '../types';
 import QuestLog from './gamified/QuestLog';
 import SpinWheel from './gamified/SpinWheel';
 import AvatarCustomizer from './gamified/AvatarCustomizer';
+import DailyStreakGarden from './gamified/DailyStreakGarden';
 
 interface DashboardViewProps {
   assets: Asset[];
@@ -226,7 +227,7 @@ export default function DashboardView({
   };
 
   // --- BATCH 1: GAMIFIED TRAINING HUB & PLAYGROUND LOCAL STATES ---
-  const [playgroundTab, setPlaygroundTab] = useState<'quests' | 'wheel' | 'avatar'>('quests');
+  const [playgroundTab, setPlaygroundTab] = useState<'quests' | 'wheel' | 'avatar' | 'garden'>('quests');
 
   const questsList = useMemo(() => {
     return [
@@ -2000,6 +2001,15 @@ export default function DashboardView({
             >
               🎨 Mascot Customizer
             </button>
+            <button
+              id="playground-tab-garden"
+              onClick={() => setPlaygroundTab('garden')}
+              className={`px-3 py-1.5 text-xs font-sans font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                playgroundTab === 'garden' ? 'bg-slate-850 text-emerald-400 shadow-md' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              🌱 Daily Streak Garden
+            </button>
           </div>
         </div>
 
@@ -2048,6 +2058,21 @@ export default function DashboardView({
                 currentAvatar={selectedAvatar}
                 userLevel={userLevel}
                 onSelectAvatar={setSelectedAvatar}
+              />
+            </motion.div>
+          )}
+
+          {playgroundTab === 'garden' && (
+            <motion.div
+              key="garden-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <DailyStreakGarden
+                streakDays={streakDays}
+                onWaterGarden={(xpAward) => onWinReward('XP', xpAward, 'Daily Garden Watered!')}
+                onNotification={onNotification}
               />
             </motion.div>
           )}
