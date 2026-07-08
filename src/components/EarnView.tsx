@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { Asset } from '../types';
 import GrowthGarden from './gamified/GrowthGarden';
+import GardeningStaking from './staking/GardeningStaking';
 
 interface EarnViewProps {
   assets: Asset[];
@@ -853,7 +854,14 @@ export default function EarnView({
           >
             <div className="lg:col-span-8 space-y-6">
               
-              <GrowthGarden stakedBalances={stakedBalances} />
+              <GardeningStaking 
+                stakedBalances={stakedBalances} 
+                setStakedBalances={setStakedBalances}
+                balances={balances}
+                setBalances={setBalances}
+                onNotification={onNotification}
+                assets={assets}
+              />
               
               <div className="p-6 bg-slate-950/40 border border-slate-900 rounded-3xl">
                 <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-5">
