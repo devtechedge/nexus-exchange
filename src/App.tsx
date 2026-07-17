@@ -1,3 +1,5 @@
+// Kickstarting CodeRabbit full codebase audit scan
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
